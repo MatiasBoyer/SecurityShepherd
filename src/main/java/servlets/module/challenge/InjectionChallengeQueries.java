@@ -1,6 +1,5 @@
 package servlets.module.challenge;
 
-import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -90,8 +89,8 @@ final class InjectionChallengeQueries {
     return statement;
   }
 
-  static CallableStatement findUser(Connection connection, String address) throws SQLException {
-    CallableStatement statement = connection.prepareCall("{call findUser(?)}");
+  static PreparedStatement findUser(Connection connection, String address) throws SQLException {
+    PreparedStatement statement = connection.prepareStatement("CALL findUser(?)");
     statement.setString(1, address);
     return statement;
   }

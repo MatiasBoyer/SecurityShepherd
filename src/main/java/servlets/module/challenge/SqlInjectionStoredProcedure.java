@@ -3,8 +3,8 @@ package servlets.module.challenge;
 import dbProcs.Database;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.sql.CallableStatement;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Locale;
@@ -78,7 +78,7 @@ public class SqlInjectionStoredProcedure extends HttpServlet {
         log.debug("Getting Connection to Database");
         Connection conn =
             Database.getChallengeConnection(ApplicationRoot, "SqlChallengeStoredProc");
-        CallableStatement stmt = InjectionChallengeQueries.findUser(conn, userIdentity);
+        PreparedStatement stmt = InjectionChallengeQueries.findUser(conn, userIdentity);
         ResultSet resultSet = stmt.executeQuery();
 
         int i = 0;

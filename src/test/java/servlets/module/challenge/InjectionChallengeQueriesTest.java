@@ -10,7 +10,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.mongodb.DBObject;
-import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -91,12 +90,7 @@ class InjectionChallengeQueriesTest {
 
   @Test
   void storedProcedureCallBindsAddress() throws SQLException {
-    CallableStatement call = mock(CallableStatement.class);
-    when(connection.prepareCall(anyString())).thenReturn(call);
-
-    assertSame(call, InjectionChallengeQueries.findUser(connection, ATTACK));
-    verify(connection).prepareCall("{call findUser(?)}");
-    verify(call).setString(1, ATTACK);
+    assertBound(InjectionChallengeQueries.findUser(connection, ATTACK), "CALL findUser(?)", ATTACK);
   }
 
   @Test
