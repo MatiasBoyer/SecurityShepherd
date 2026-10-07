@@ -51,6 +51,7 @@ String i18nLevelName = bundle.getString("challenge.challengeName");
  	if (Validate.validateSession(ses) && tokenCookie != null)
  	{
  		ShepherdLogManager.logEvent(request.getRemoteAddr(), request.getHeader("X-Forwarded-For"), levelName + " has been accessed by " + ses.getAttribute("userName").toString(), ses.getAttribute("userName"));
+		String sessionActionToken = servlets.module.challenge.SessionChallengeSecurity.issueActionToken(ses);
 %>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -159,7 +160,6 @@ String i18nLevelName = bundle.getString("challenge.challengeName");
 			});
 			
 			$("#leForm2").submit(function(){
-				document.cookie="current=WjNWbGMzUXhNZz09";
 				var theNewPassword = $("#passOne").val();
 				var theNewPasswordAgain = $("#passTwo").val();
 				if(theNewPassword == theNewPasswordAgain && theNewPassword.length > 6)
@@ -171,7 +171,8 @@ String i18nLevelName = bundle.getString("challenge.challengeName");
 							type: "POST",
 							url: "b467dbe3cd61babc0ec599fd0c67e359e6fe04e8cdc618d537808cbb693fee8a",
 							data: {
-								newPassword: theNewPassword
+								newPassword: theNewPassword,
+								csrfToken: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(sessionActionToken) %>"
 							},
 							async: false
 						});

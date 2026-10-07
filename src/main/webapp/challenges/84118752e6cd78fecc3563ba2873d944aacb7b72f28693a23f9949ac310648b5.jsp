@@ -63,9 +63,8 @@ if (request.getSession() != null)
 		}
 		String userId = Encode.forHtml(ses.getAttribute("userStamp").toString());
 		
-		//Set CSRF Challenge 4 CsrfToken
-		String csrfChal4Token = Setter.setCsrfChallengeFourCsrfToken(userId, Hash.randomString().trim(), ApplicationRoot);
-		ses.setAttribute("csrfChallengeFourNonce", csrfChal4Token);
+		//Use a nonce tied to this authenticated session
+		String csrfChal4Token = servlets.module.challenge.ChallengeTargetProtection.issueToken(ses);
 %>
 
 <html xmlns="http://www.w3.org/1999/xhtml">

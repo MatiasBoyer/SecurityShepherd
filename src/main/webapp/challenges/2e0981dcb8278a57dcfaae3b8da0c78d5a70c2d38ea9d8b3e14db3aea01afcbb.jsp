@@ -62,6 +62,7 @@ String i18nLevelName = bundle.getString("title.csrfJson");
 			userClass = Encode.forHtml(ses.getAttribute("userClass").toString());
 		}
 		String userId = Encode.forHtml(ses.getAttribute("userStamp").toString());
+		String csrfTargetToken = Encode.forHtml(servlets.module.challenge.ChallengeTargetProtection.issueToken(ses));
 %>
 
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -91,6 +92,7 @@ String i18nLevelName = bundle.getString("title.csrfJson");
 			<%= bundle.getString("challenge.userIdExample") %><%= bundle.getString("challenge.whereIdIsUserBeenIncremented.2") %>
 			<%=bundle.getString("challenge.yourIdIs") %><a> <%= userId %></a>
 			<%= bundle.getString("challenge.yourIdIs.1") %>
+			<br /> csrfToken = <a><%= csrfTargetToken %></a>
 			<br /> <br />
 			<%= bundle.getString("challenge.useForumForIframe") %>
 			<% 

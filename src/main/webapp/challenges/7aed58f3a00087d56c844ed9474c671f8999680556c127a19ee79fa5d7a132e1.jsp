@@ -52,6 +52,7 @@ if (request.getSession() != null)
 	if (Validate.validateSession(ses) && tokenCookie != null)
 	{
 		ShepherdLogManager.logEvent(request.getRemoteAddr(), request.getHeader("X-Forwarded-For"), levelName + " has been accessed by " + ses.getAttribute("userName").toString(), ses.getAttribute("userName"));
+		String sessionActionToken = servlets.module.challenge.SessionChallengeSecurity.issueActionToken(ses);
 %>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -165,7 +166,8 @@ if (request.getSession() != null)
 						type: "POST",
 						url: "<%= levelHash %>SendToken",
 						data: {
-							subUserName: theUserToReset
+							subUserName: theUserToReset,
+							csrfToken: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(sessionActionToken) %>"
 						},
 						async: false
 					});
@@ -207,7 +209,8 @@ if (request.getSession() != null)
 						data: {
 							userName: theUserName,
 							newPassword: theNewPassword,
-							resetPasswordToken: theToken
+							resetPasswordToken: theToken,
+							csrfToken: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(sessionActionToken) %>"
 						},
 						async: false
 					});

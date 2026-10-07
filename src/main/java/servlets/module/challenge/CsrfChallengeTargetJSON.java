@@ -75,13 +75,15 @@ public class CsrfChallengeTargetJSON extends HttpServlet {
 
         log.debug("Getting JSON String");
         String jsonData = extractPostRequestBody(request);
-        log.debug("POST body: " + jsonData);
         JSONObject json = new JSONObject(jsonData);
         log.debug("Getting userId");
         String plusId = (String) json.get("userId");
         log.debug("User Submitted - " + plusId);
         String userId = (String) ses.getAttribute("userStamp");
-        if (!userId.equals(plusId)) {
+        if (request.getContentType() != null
+            && request.getContentType().toLowerCase(Locale.ROOT).startsWith("application/json")
+            && ChallengeTargetProtection.isAuthorized(
+                ses, plusId, json.optString("csrfToken", null))) {
           String ApplicationRoot = getServletContext().getRealPath("");
           String userName = (String) ses.getAttribute("userName");
           String attackerName = Getter.getUserName(ApplicationRoot, plusId);

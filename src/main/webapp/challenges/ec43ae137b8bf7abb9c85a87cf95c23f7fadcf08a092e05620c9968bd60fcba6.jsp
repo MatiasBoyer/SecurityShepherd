@@ -101,7 +101,6 @@ if (request.getSession() != null)
 				$("#submitButton").hide("fast");
 				$("#loadingSign").show("slow");
 				$("#resultsDiv").hide("slow", function(){
-					document.cookie="SubSessionID=TURBd01EQXdNREF3TURBd01EQXdNUT09";
 					var ajaxCall = $.ajax({
 						type: "POST",
 						url: "<%= levelHash %>",

@@ -5,12 +5,10 @@ import java.io.PrintWriter;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import utils.Hash;
@@ -45,13 +43,8 @@ public class SessionManagement4 extends HttpServlet {
   private static String levelResult = "238a43b12dde07f39d14599a780ae90f87a23e";
 
   /**
-   * Users must discover the session id for this sub application is very weak. The default session
-   * ID for a guest will be 00000001 base64'd. The admin's session will be 00000021
-   *
-   * @param upgraeUserToAdmin Red herring
-   * @param returnPassword Red herring
-   * @param adminDetected Red herring
-   * @param checksum Cookie encoded base 64 that manages who is signed in to the sub schema
+   * Only a server-authenticated administrator may retrieve the result key. Request parameters and
+   * cookies do not convey privileges.
    */
   public void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -76,48 +69,22 @@ public class SessionManagement4 extends HttpServlet {
             request.getHeader("X-Forwarded-For"),
             ses.getAttribute("userName").toString());
         log.debug(levelName + " servlet accessed by: " + ses.getAttribute("userName").toString());
-        Cookie userCookies[] = request.getCookies();
-        int i = 0;
-        Cookie theCookie = null;
-        for (i = 0; i < userCookies.length; i++) {
-          if (userCookies[i].getName().compareTo("SubSessionID") == 0) {
-            theCookie = userCookies[i];
-            break; // End Loop, because we found the token
-          }
-        }
         String htmlOutput = null;
-        if (theCookie != null) {
-          log.debug("Cookie value: " + theCookie.getValue());
-          // Decode Twice
-          byte[] decodedCookieBytes = Base64.decodeBase64(theCookie.getValue());
-          String decodedCookie = new String(decodedCookieBytes, "UTF-8");
-          decodedCookieBytes = Base64.decodeBase64(decodedCookie.getBytes());
-          decodedCookie = new String(decodedCookieBytes, "UTF-8");
-          log.debug("Decoded Cookie: " + decodedCookie);
-          if (decodedCookie.equals("0000000000000001")) // Guest Session
-          {
-            log.debug("Guest Session Detected");
-          } else if (decodedCookie.equals("0000000000000009")) // Admin Session
-          {
-            log.debug("Admin Session Detected: Challenge Complete");
-            // Get key and add it to the output
-            String userKey =
-                Hash.generateUserSolution(levelResult, (String) ses.getAttribute("userName"));
-            htmlOutput =
-                "<h2 class='title'>"
-                    + bundle.getString("response.adminClub")
-                    + "</h2>"
-                    + "<p>"
-                    + bundle.getString("response.welcomeAdmin")
-                    + " "
-                    + "<a>"
-                    + userKey
-                    + "</a>"
-                    + "</p>";
-          } else // Unknown or Dead session
-          {
-            log.debug("Dead Session Detected");
-          }
+        if (SessionChallengeSecurity.isPlatformAdmin(ses)) {
+          log.debug("Authenticated administrator detected");
+          String userKey =
+              Hash.generateUserSolution(levelResult, (String) ses.getAttribute("userName"));
+          htmlOutput =
+              "<h2 class='title'>"
+                  + bundle.getString("response.adminClub")
+                  + "</h2>"
+                  + "<p>"
+                  + bundle.getString("response.welcomeAdmin")
+                  + " "
+                  + "<a>"
+                  + userKey
+                  + "</a>"
+                  + "</p>";
         }
         if (htmlOutput == null) {
           log.debug("Challenge Not Complete");

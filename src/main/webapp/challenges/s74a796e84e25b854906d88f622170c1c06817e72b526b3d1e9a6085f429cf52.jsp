@@ -62,6 +62,7 @@
 			userClass = Encode.forHtml(ses.getAttribute("userClass").toString());
 		}
 		String userId = Encode.forHtml(ses.getAttribute("userStamp").toString());
+		String csrfTargetToken = Encode.forHtml(servlets.module.challenge.ChallengeTargetProtection.issueToken(ses));
 %>
 
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -83,10 +84,11 @@
 		<h2 class="title"><%= bundle.getString("title.csrf1") %></h2>
 		<p>
 			<%= bundle.getString("challenge.intro") %>
-			<br /> <br /> <a> GET /user/csrfchallengeone/plusplus?userid=<%= bundle.getString("challenge.userIdExample") %>
+			<br /> <br /> <a> POST /user/csrfchallengeone/plusplus with userid=<%= bundle.getString("challenge.userIdExample") %>
 			</a> <br /> <br />
 			<%= bundle.getString("challenge.whereIdIsUserBeenIncremented.1") %>&nbsp;<%= bundle.getString("challenge.userIdExample") %>&nbsp;<%= bundle.getString("challenge.whereIdIsUserBeenIncremented.2") %>&nbsp;<%= bundle.getString("challenge.yourIdIs") %>
 			<a><%= userId %></a><%= bundle.getString("challenge.yourIdIs.1") %>
+			<br /> csrfToken = <a><%= csrfTargetToken %></a>
 			<br /> <br />
 			<%= bundle.getString("challenge.useForumForImg") %>
 			<%

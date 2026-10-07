@@ -52,6 +52,7 @@ if (request.getSession() != null)
  	if (Validate.validateSession(ses) && tokenCookie != null)
  	{
  		ShepherdLogManager.logEvent(request.getRemoteAddr(), request.getHeader("X-Forwarded-For"), levelName + " has been accessed by " + ses.getAttribute("userName").toString(), ses.getAttribute("userName"));
+		String sessionActionToken = servlets.module.challenge.SessionChallengeSecurity.issueActionToken(ses);
 
 %>
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -108,7 +109,8 @@ if (request.getSession() != null)
 					<tr>
 						</td>
 						<div id="resetSubmit">
-							<input id="resetEmail" type="text" autocomplete="off" /><input
+							<input id="resetEmail" type="text" autocomplete="off" />
+						<input id="resetNewPassword" type="password" autocomplete="new-password" minlength="8" placeholder="New password" /><input
 								type="submit" value="<%= bundle.getString("reset.header") %>" />
 						</div>
 						<p style="display: none;" id="resetLoadingSign"><%= bundle.getString("challenge.form.loading") %></p>
@@ -155,6 +157,7 @@ if (request.getSession() != null)
 			
 			$("#leForm2").submit(function(){
 				var theResetEmail = $("#resetEmail").val();
+				var theNewPassword = $("#resetNewPassword").val();
 				$("#resetSubmit").hide("fast");
 				$("#resetLoadingSign").show("slow");
 				$("#resultsDiv2").hide("slow", function(){
@@ -162,13 +165,15 @@ if (request.getSession() != null)
 						type: "POST",
 						url: "f5ddc0ed2d30e597ebacf5fdd117083674b19bb92ffc3499121b9e6a12c92959",
 						data: {
-							subEmail: theResetEmail
+							subEmail: theResetEmail,
+							newPassword: theNewPassword,
+							csrfToken: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(sessionActionToken) %>"
 						},
 						async: false
 					});
 					if(ajaxCall.status == 200)
 					{
-						$("#resultsDiv2").html("<p><%= bundle.getString("reset.requestSent") %></p>");
+						$("#resultsDiv2").html(ajaxCall.responseText);
 					}
 					else
 					{

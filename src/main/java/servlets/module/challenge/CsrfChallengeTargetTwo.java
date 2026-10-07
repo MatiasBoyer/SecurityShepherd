@@ -72,7 +72,8 @@ public class CsrfChallengeTargetTwo extends HttpServlet {
         String plusId = request.getParameter("userId");
         log.debug("User Submitted - " + plusId);
         String userId = (String) ses.getAttribute("userStamp");
-        if (!userId.equals(plusId)) {
+        if (ChallengeTargetProtection.isAuthorized(
+            ses, plusId, request.getParameter("csrfToken"))) {
           String ApplicationRoot = getServletContext().getRealPath("");
           String userName = (String) ses.getAttribute("userName");
           String attackerName = Getter.getUserName(ApplicationRoot, plusId);

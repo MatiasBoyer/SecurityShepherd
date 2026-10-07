@@ -95,7 +95,6 @@ String translatedLevelName = bundle.getString("challenge.challengeName");
 				$("#submitButton").hide("fast");
 				$("#loadingSign").show("slow");
 				$("#resultsDiv").hide("slow", function(){
-					document.cookie="checksum=dXNlclJvbGU9dXNlcg==";
 					var ajaxCall = $.ajax({
 						type: "POST",
 						url: "<%= levelHash %>",

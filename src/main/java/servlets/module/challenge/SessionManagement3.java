@@ -96,7 +96,7 @@ public class SessionManagement3 extends HttpServlet {
           subPass = (String) passObj;
         }
         log.debug("subName = " + subName);
-        log.debug("subPass = " + subPass);
+        SessionChallengeSecurity.clearSubUser(ses, "challenge3");
 
         log.debug("Getting ApplicationRoot");
         String ApplicationRoot = getServletContext().getRealPath("");
@@ -132,6 +132,7 @@ public class SessionManagement3 extends HttpServlet {
             ResultSet resultSet2 = callstmt.executeQuery();
             if (resultSet2.next()) {
               log.debug("Successful Admin Login");
+              SessionChallengeSecurity.recordSubUser(ses, "challenge3", resultSet2.getString(1));
               // Get key and add it to the output
               String userKey =
                   Hash.generateUserSolution(levelResult, (String) ses.getAttribute("userName"));
@@ -157,15 +158,27 @@ public class SessionManagement3 extends HttpServlet {
               htmlOutput = makeTable(userAddress, bundle);
             }
           } else {
-            log.debug("Successful Guest Login");
-            htmlOutput =
-                makeTable(bundle)
-                    + "<h2 class='title'>"
-                    + bundle.getString("response.welcomeGuest")
-                    + "</h2>"
-                    + "<p>"
-                    + bundle.getString("response.guestMessage")
-                    + "</p><br/><br/>";
+            callstmt =
+                conn.prepareStatement(
+                    "SELECT userName FROM users WHERE userName = ? AND userPassword = SHA(?)");
+            callstmt.setString(1, subName);
+            callstmt.setString(2, subPass);
+            ResultSet guestResult = callstmt.executeQuery();
+            if (guestResult.next()) {
+              SessionChallengeSecurity.recordSubUser(ses, "challenge3", guestResult.getString(1));
+              log.debug("Successful Guest Login");
+              htmlOutput =
+                  makeTable(bundle)
+                      + "<h2 class='title'>"
+                      + bundle.getString("response.welcomeGuest")
+                      + "</h2>"
+                      + "<p>"
+                      + bundle.getString("response.guestMessage")
+                      + "</p><br/><br/>";
+            } else {
+              userAddress = bundle.getString("response.badPass") + "<br/>";
+              htmlOutput = makeTable(userAddress, bundle);
+            }
           }
         } else {
           userAddress = bundle.getString("response.badUser") + "<br/>";

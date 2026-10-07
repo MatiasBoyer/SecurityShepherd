@@ -3,12 +3,8 @@ package servlets.module.challenge;
 import dbProcs.Database;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import javax.servlet.ServletException;
@@ -16,7 +12,6 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import utils.ShepherdLogManager;
@@ -50,13 +45,12 @@ public class SessionManagement5ChangePassword extends HttpServlet {
   // private static String levelResult = ""; //This Servlet does not return a result
 
   /**
-   * Function used by Session Management Challenge Five to change the password of the submitted user
-   * name. The function requires a valid token which is a base64'd timestamp. If the current time is
-   * within 10 minutes of the token, the function will execute
+   * Changes the password for the sub-application account authenticated in this session after
+   * consuming its one-time reset token.
    *
-   * @param userName User cookie used to store the user password to be reset
+   * @param userName Account authenticated in the server session
    * @param newPassword the password which to use to update an accounts password
-   * @param resetPasswordToken Base64'd time stamp
+   * @param resetPasswordToken One-time reset token
    */
   public void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -79,106 +73,37 @@ public class SessionManagement5ChangePassword extends HttpServlet {
       log.debug(levelName + " servlet accessed by: " + ses.getAttribute("userName").toString());
       PrintWriter out = response.getWriter();
       out.print(getServletInfo());
-      String htmlOutput = new String();
-      String errorMessage = new String();
-      int tokenLife = 11;
       try {
-        log.debug("Getting Challenge Parameters");
-        Object passNewObj = request.getParameter("newPassword");
-        Object userNewObj = request.getParameter("userName");
-        Object tokenObj = request.getParameter("resetPasswordToken");
-        String userName = new String();
-        String newPass = new String();
-        String token = new String();
-        if (passNewObj != null) {
-          newPass = (String) passNewObj;
+        String userName = Validate.validateParameter(request.getParameter("userName"), 32);
+        String newPassword = Validate.validateParameter(request.getParameter("newPassword"), 512);
+        String token = Validate.validateParameter(request.getParameter("resetPasswordToken"), 128);
+        if (!SessionChallengeSecurity.isSubUser(ses, "challenge5", userName)
+            || !SessionChallengeSecurity.hasActionToken(ses, request.getParameter("csrfToken"))) {
+          response.sendError(HttpServletResponse.SC_FORBIDDEN);
+          return;
         }
-        if (userNewObj != null) {
-          userName = (String) userNewObj;
+        if (newPassword.length() < 12) {
+          out.write("<p>" + bundle.getString("changePass.failure") + "</p>");
+          return;
         }
-        if (tokenObj != null) {
-          token = (String) tokenObj;
+        if (!SessionChallengeSecurity.consumeResetToken(ses, userName, token)) {
+          response.sendError(HttpServletResponse.SC_FORBIDDEN);
+          return;
         }
-        log.debug("userName = " + userName);
-        log.debug("newPass = " + newPass);
-        log.debug("token = " + token);
-        String tokenTime = new String();
-        try {
-          byte[] decodedToken = Base64.decodeBase64(token);
-          tokenTime = new String(decodedToken, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-          log.debug("Could not decode password token");
-          errorMessage += "<p>" + bundle.getString("changePass.noDecode") + "</p>";
-        }
-        if (tokenTime.isEmpty()) {
-          log.debug("Could not decode token. Ending Servlet.");
-          out.write(errorMessage);
-        } else {
-          log.debug("Decoded Token = " + tokenTime);
-
-          // Get Time from Token and see if it is inside the last 10 minutes
-          SimpleDateFormat simpleDateFormat = new SimpleDateFormat("EEE MMM d HH:mm:ss Z yyyy");
-          try {
-            Date tokenDateTime = simpleDateFormat.parse(tokenTime);
-            Date currentDateTime = new Date();
-            // Get difference in minutes
-            tokenLife =
-                (int) ((currentDateTime.getTime() / 60000) - (tokenDateTime.getTime() / 60000));
-            log.debug("Token life = " + tokenLife);
-          } catch (ParseException e) {
-            log.error("Date Parsing Error: " + e.toString());
-            errorMessage += bundle.getString("changePass.badTokenData") + ": " + e.toString();
+        String applicationRoot = getServletContext().getRealPath("");
+        try (Connection conn =
+            Database.getChallengeConnection(applicationRoot, "BrokenAuthAndSessMangChalFive")) {
+          try (PreparedStatement statement =
+              conn.prepareStatement("UPDATE users SET userPassword = SHA(?) WHERE userName = ?")) {
+            statement.setString(1, newPassword);
+            statement.setString(2, userName);
+            statement.executeUpdate();
           }
-
-          if (tokenLife < 10 && tokenLife >= 0) {
-            if (newPass.length() >= 12) {
-              log.debug("Getting ApplicationRoot");
-              String ApplicationRoot = getServletContext().getRealPath("");
-              log.debug("Servlet root = " + ApplicationRoot);
-
-              Connection conn =
-                  Database.getChallengeConnection(ApplicationRoot, "BrokenAuthAndSessMangChalFive");
-              log.debug("Changing password for user: " + userName);
-              log.debug("Changing password to: " + newPass);
-              PreparedStatement callstmt;
-
-              callstmt =
-                  conn.prepareStatement(
-                      "UPDATE users SET userPassword = SHA(?) WHERE userName = ?");
-
-              callstmt.setString(1, newPass);
-              callstmt.setString(2, userName);
-
-              log.debug("Executing changePassword");
-              callstmt.execute();
-
-              log.debug("Committing changes made to database");
-              callstmt = conn.prepareStatement("COMMIT");
-              callstmt.execute();
-              log.debug("Changes committed.");
-
-              htmlOutput = "<p>" + bundle.getString("changePass.success") + "</p>";
-            } else {
-              log.debug("Invalid password submitted: " + newPass);
-              htmlOutput = "<p>" + bundle.getString("changePass.failure") + "</p>";
-            }
-          } else {
-            if (!errorMessage.isEmpty()) {
-              htmlOutput = "<p><font colour='red'><b>" + errorMessage + "</b></font</p>";
-            } else if (tokenLife >= 10) {
-              log.debug("Token too old");
-              htmlOutput = "<p>" + bundle.getString("changePass.oldToken") + "</p>";
-            } else if (tokenLife < 0) {
-              log.debug("Token to young");
-              htmlOutput = "<p>" + bundle.getString("changePass.youngToken") + "</p>";
-            } else {
-              log.error("Token to Strange: Unexpected Error");
-              htmlOutput = "<p>" + bundle.getString("changePass.funkyToken") + "</p>";
-            }
+          try (PreparedStatement commit = conn.prepareStatement("COMMIT")) {
+            commit.execute();
           }
         }
-        log.debug("Outputting HTML");
-        out.write(htmlOutput);
+        out.write("<p>" + bundle.getString("changePass.success") + "</p>");
       } catch (Exception e) {
         out.write(errors.getString("error.funky"));
         log.fatal(levelName + " - Change Password - " + e.toString());
