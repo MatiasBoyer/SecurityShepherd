@@ -79,7 +79,6 @@ public class SqlInjection5 extends HttpServlet {
         int bananaAmount = validateAmount(Integer.parseInt(request.getParameter("bananaAmount")));
         log.debug("bananaAmount - " + bananaAmount);
         String couponCode = request.getParameter("couponCode");
-        log.debug("couponCode - " + couponCode);
 
         // Working out costs
         int pineappleCost = pineappleAmount * 30;
@@ -95,12 +94,7 @@ public class SqlInjection5 extends HttpServlet {
         Connection conn =
             Database.getChallengeConnection(applicationRoot, "SqlInjectionChallenge5Shop");
         log.debug("Looking for Coupons");
-        PreparedStatement prepstmt =
-            conn.prepareStatement(
-                "SELECT itemId, perCentOff FROM coupons WHERE couponCode = ?"
-                    + "UNION SELECT itemId, perCentOff FROM vipCoupons WHERE couponCode = ?");
-        prepstmt.setString(1, couponCode);
-        prepstmt.setString(2, couponCode);
+        PreparedStatement prepstmt = InjectionChallengeQueries.purchaseCoupon(conn, couponCode);
         ResultSet coupons = prepstmt.executeQuery();
         try {
           if (coupons.next()) {

@@ -113,7 +113,7 @@ public class NoSqlInjection1 extends HttpServlet {
         String gamerId = request.getParameter("theGamerName");
         log.debug("User Submitted: " + gamerId);
 
-        DBObject whereQuery = new BasicDBObject("$where", "this._id == '" + gamerId + "'");
+        DBObject whereQuery = gamerById(gamerId);
         cursor = dbCollection.find(whereQuery);
 
         try {
@@ -177,5 +177,9 @@ public class NoSqlInjection1 extends HttpServlet {
     } else {
       log.error(levelName + " servlet accessed with no session");
     }
+  }
+
+  static DBObject gamerById(String gamerId) {
+    return new BasicDBObject("_id", gamerId);
   }
 }

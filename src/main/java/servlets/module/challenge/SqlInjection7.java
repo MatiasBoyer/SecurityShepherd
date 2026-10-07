@@ -72,19 +72,13 @@ public class SqlInjection7 extends HttpServlet {
         String subEmail = Validate.validateParameter(request.getParameter("subEmail"), 60);
         log.debug("subEmail - " + subEmail.replaceAll("\n", " \\\\n ")); // Escape \n's
         String subPassword = Validate.validateParameter(request.getParameter("subPassword"), 40);
-        log.debug("subPassword - " + subPassword);
-        boolean validEmail =
-            Validate.isValidEmailAddress(subEmail.replaceAll("\n", "")); // Ignore \n 's
-        if (!subPassword.isEmpty() && !subPassword.isEmpty() && validEmail) {
+        boolean validEmail = Validate.isValidEmailAddress(subEmail);
+        if (!subEmail.isEmpty() && !subPassword.isEmpty() && validEmail) {
           Connection conn = Database.getChallengeConnection(applicationRoot, "SqlChallengeSeven");
           try {
             log.debug("Signing in with subitted details");
             PreparedStatement prepstmt =
-                conn.prepareStatement(
-                    "SELECT userName FROM users WHERE userEmail = '"
-                        + subEmail
-                        + "' AND userPassword = ?;");
-            prepstmt.setString(1, subPassword);
+                InjectionChallengeQueries.userByEmailAndPassword(conn, subEmail, subPassword);
             ResultSet users = prepstmt.executeQuery();
             if (users.next()) {
               htmlOutput =

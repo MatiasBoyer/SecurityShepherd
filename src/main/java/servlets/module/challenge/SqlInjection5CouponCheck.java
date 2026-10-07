@@ -67,7 +67,6 @@ public class SqlInjection5CouponCheck extends HttpServlet {
 
       try {
         String couponCode = request.getParameter("couponCode");
-        log.debug("couponCode - " + couponCode);
         if (couponCode == null || couponCode.isEmpty()) {
           couponCode = new String();
         }
@@ -76,12 +75,7 @@ public class SqlInjection5CouponCheck extends HttpServlet {
         Connection conn =
             Database.getChallengeConnection(applicationRoot, "SqlInjectionChallenge5ShopCoupon");
         log.debug("Looking for Coupons Insecurely");
-        PreparedStatement prepstmt =
-            conn.prepareStatement(
-                "SELECT itemId, perCentOff, itemName FROM coupons JOIN items USING (itemId) WHERE"
-                    + " couponCode = '"
-                    + couponCode
-                    + "';");
+        PreparedStatement prepstmt = InjectionChallengeQueries.publicCoupon(conn, couponCode);
         ResultSet coupons = prepstmt.executeQuery();
         try {
           if (coupons.next()) {

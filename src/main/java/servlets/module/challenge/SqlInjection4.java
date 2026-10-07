@@ -4,9 +4,9 @@ import dbProcs.Database;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import javax.servlet.ServletException;
@@ -18,7 +18,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.owasp.encoder.Encode;
 import utils.ShepherdLogManager;
-import utils.SqlFilter;
 import utils.Validate;
 
 /**
@@ -80,26 +79,16 @@ public class SqlInjection4 extends HttpServlet {
       try {
         String theUserName = request.getParameter("theUserName");
         log.debug("User Submitted - " + theUserName);
-        theUserName = SqlFilter.levelFour(theUserName);
-        log.debug("Filtered to " + theUserName);
         String thePassword = request.getParameter("thePassword");
-        log.debug("thePassword Submitted - " + thePassword);
-        thePassword = SqlFilter.levelFour(thePassword);
-        log.debug("Filtered to " + thePassword);
         String ApplicationRoot = getServletContext().getRealPath("");
         log.debug("Servlet root = " + ApplicationRoot);
 
         log.debug("Getting Connection to Database");
         Connection conn = Database.getChallengeConnection(ApplicationRoot, "SqlChallengeFour");
-        Statement stmt = conn.createStatement();
+        PreparedStatement stmt =
+            InjectionChallengeQueries.userByCredentials(conn, theUserName, thePassword);
         log.debug("Gathering result set");
-        ResultSet resultSet =
-            stmt.executeQuery(
-                "SELECT userName FROM users WHERE userName = '"
-                    + theUserName
-                    + "' AND userPassword = '"
-                    + thePassword
-                    + "'");
+        ResultSet resultSet = stmt.executeQuery();
 
         int i = 0;
         htmlOutput = "<h2 class='title'>" + bundle.getString("response.loginResults") + "</h2>";
