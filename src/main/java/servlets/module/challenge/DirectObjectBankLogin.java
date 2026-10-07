@@ -83,6 +83,8 @@ public class DirectObjectBankLogin extends HttpServlet {
         String applicationRoot = getServletContext().getRealPath("");
         String htmlOutput = new String();
 
+        // A failed sign-in must not retain authorization from an earlier bank account.
+        ses.removeAttribute("directObjectBankAccount");
         Connection conn = Database.getChallengeConnection(applicationRoot, "directObjectBank");
         CallableStatement callstmt = conn.prepareCall("CALL bankAuth(?, ?)");
         callstmt.setString(1, accountHolder);

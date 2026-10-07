@@ -108,7 +108,7 @@ public class SessionManagement7SecretQuestion extends HttpServlet {
             if (Validate.isValidEmailAddress(subEmail) && subAns.length() > 5) {
               Connection conn =
                   Database.getChallengeConnection(
-                      ApplicationRoot, "BrokenAuthAndSessMangChalFlowers");
+                      ApplicationRoot, "BrokenAuthAndSessMangChalSeven");
               log.debug("Checking Secret Answer");
               PreparedStatement callstmt =
                   conn.prepareStatement(
@@ -117,7 +117,7 @@ public class SessionManagement7SecretQuestion extends HttpServlet {
               callstmt.setString(2, subAns);
               log.debug("Running secret Answer Check");
               ResultSet rs = callstmt.executeQuery();
-              if (rs.next()) {
+              if (rs.next() && canUseAnswer(ses, rs.getString(1))) {
                 log.debug("Correct Answer Submitted");
                 // Get key and add it to the output
                 String userKey =
@@ -181,8 +181,7 @@ public class SessionManagement7SecretQuestion extends HttpServlet {
   }
 
   /**
-   * A user submits an email address to get that user's Secret QUestion. This is vulnerable to SQL
-   * injection
+   * A user submits an email address to retrieve the challenge's security question.
    *
    * @param subEmail Sub schema user email to search DB with
    */
@@ -257,5 +256,10 @@ public class SessionManagement7SecretQuestion extends HttpServlet {
       }
     }
     return false;
+  }
+
+  static boolean canUseAnswer(HttpSession session, String accountName) {
+    return accountName != null
+        && accountName.equals(session.getAttribute("sessionManagementSevenAuthenticatedUser"));
   }
 }

@@ -59,6 +59,12 @@ public class DirectObjectBankCurrentBalance extends HttpServlet {
         ResourceBundle.getBundle("i18n.servlets.challenges.directObject.directObjectBank", locale);
 
     if (Validate.validateSession(ses)) {
+      String accountNumber = request.getParameter("accountNumber");
+      Object authenticatedAccount = ses.getAttribute("directObjectBankAccount");
+      if (authenticatedAccount == null || !authenticatedAccount.equals(accountNumber)) {
+        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        return;
+      }
       ShepherdLogManager.setRequestIp(
           request.getRemoteAddr(),
           request.getHeader("X-Forwarded-For"),
@@ -67,7 +73,6 @@ public class DirectObjectBankCurrentBalance extends HttpServlet {
       PrintWriter out = response.getWriter();
       out.print(getServletInfo());
       try {
-        String accountNumber = request.getParameter("accountNumber");
         log.debug("Account Number - " + accountNumber);
         String applicationRoot = getServletContext().getRealPath("");
         String htmlOutput = new String();

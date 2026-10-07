@@ -156,8 +156,7 @@ public class SessionManagement6SecretQuestion extends HttpServlet {
   }
 
   /**
-   * A user submits an email address to get that user's Secret QUestion. This is vulnerable to SQL
-   * injection
+   * A user submits an email address to retrieve that user's security question.
    *
    * @param subEmail Sub schema user email to search DB with
    */
@@ -224,11 +223,7 @@ public class SessionManagement6SecretQuestion extends HttpServlet {
                     Database.getChallengeConnection(
                         ApplicationRoot, "BrokenAuthAndSessMangChalSix");
                 log.debug("Getting Secret Question");
-                PreparedStatement callstmt =
-                    conn.prepareStatement(
-                        "SELECT secretQuestion FROM users WHERE userAddress = \""
-                            + subEmail
-                            + "\"");
+                PreparedStatement callstmt = prepareQuestionLookup(conn, subEmail);
                 ResultSet rs = callstmt.executeQuery();
                 if (rs.next()) {
                   log.debug("'Valid' User Detected");
@@ -245,8 +240,7 @@ public class SessionManagement6SecretQuestion extends HttpServlet {
               }
             } catch (SQLException e) {
               log.debug(levelName + " SQL Error: " + e.toString());
-              log.debug("Outputting error to user");
-              htmlOutput = new String(e.toString());
+              htmlOutput = errors.getString("error.funky");
             }
           } else {
             log.debug("Tampered cookie detected");
@@ -265,5 +259,13 @@ public class SessionManagement6SecretQuestion extends HttpServlet {
     } else {
       log.error(levelName + " servlet accessed with no session");
     }
+  }
+
+  static PreparedStatement prepareQuestionLookup(Connection conn, String email)
+      throws SQLException {
+    PreparedStatement statement =
+        conn.prepareStatement("SELECT secretQuestion FROM users WHERE userAddress = ?");
+    statement.setString(1, email);
+    return statement;
   }
 }

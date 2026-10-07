@@ -80,6 +80,8 @@ public class SessionManagement7 extends HttpServlet {
       String htmlOutput = new String();
       log.debug(levelName + " Servlet Accessed");
       try {
+        // A failed sign-in must not retain a previously authenticated sub-application user.
+        ses.removeAttribute("sessionManagementSevenAuthenticatedUser");
         log.debug("Getting Cookies");
         Cookie userCookies[] = request.getCookies();
         int i = 0;
@@ -110,12 +112,10 @@ public class SessionManagement7 extends HttpServlet {
               subPass = (String) passObj;
             }
             log.debug("subName = " + subName);
-            log.debug("subPass = " + subPass);
 
             String ApplicationRoot = getServletContext().getRealPath("");
             Connection conn =
-                Database.getChallengeConnection(
-                    ApplicationRoot, "BrokenAuthAndSessMangChalFlowers");
+                Database.getChallengeConnection(ApplicationRoot, "BrokenAuthAndSessMangChalSeven");
             log.debug("Checking credentials");
             PreparedStatement callstmt;
 
@@ -124,20 +124,16 @@ public class SessionManagement7 extends HttpServlet {
             callstmt.execute();
             log.debug("Changes committed.");
 
-            // Filtering password for !, so that it is impossible for users to sign in
-            subPass = subPass.replaceAll("!", "");
-
             callstmt =
                 conn.prepareStatement(
-                    "SELECT userName, userAddress FROM users WHERE userName = ? AND userPassword ="
-                        + " SHA(?)");
+                    "SELECT userName, userAddress FROM users WHERE userName = ? AND userPassword = SHA(?)");
             callstmt.setString(1, subName);
             callstmt.setString(2, subPass);
             log.debug("Executing authUser");
             ResultSet resultSet = callstmt.executeQuery();
             if (resultSet.next()) {
-              // This should never happen. But just in case;
               log.debug("Successful Login");
+              ses.setAttribute("sessionManagementSevenAuthenticatedUser", resultSet.getString(1));
               // Get key and add it to the output
               String userKey =
                   Hash.generateUserSolution(

@@ -64,6 +64,10 @@ public class UrlAccess1Admin extends HttpServlet {
         ResourceBundle.getBundle("i18n.servlets.challenges.urlAccess.urlAccess1", locale);
 
     if (Validate.validateSession(ses)) {
+      if (!"admin".equals(ses.getAttribute("userRole"))) {
+        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        return;
+      }
       ShepherdLogManager.setRequestIp(
           request.getRemoteAddr(),
           request.getHeader("X-Forwarded-For"),

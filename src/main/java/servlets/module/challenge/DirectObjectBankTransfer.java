@@ -62,6 +62,12 @@ public class DirectObjectBankTransfer extends HttpServlet {
         ResourceBundle.getBundle("i18n.servlets.challenges.directObject.directObjectBank", locale);
 
     if (Validate.validateSession(ses)) {
+      String senderAccountNumber = request.getParameter("senderAccountNumber");
+      Object authenticatedAccount = ses.getAttribute("directObjectBankAccount");
+      if (authenticatedAccount == null || !authenticatedAccount.equals(senderAccountNumber)) {
+        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        return;
+      }
       ShepherdLogManager.setRequestIp(
           request.getRemoteAddr(),
           request.getHeader("X-Forwarded-For"),
@@ -73,7 +79,6 @@ public class DirectObjectBankTransfer extends HttpServlet {
       String errorMessage = new String();
       String applicationRoot = getServletContext().getRealPath("");
       try {
-        String senderAccountNumber = request.getParameter("senderAccountNumber");
         log.debug("Sender Account Number - " + senderAccountNumber);
         String receiverAccountNumber = request.getParameter("receiverAccountNumber");
         log.debug("Receiver Account Number - " + receiverAccountNumber);

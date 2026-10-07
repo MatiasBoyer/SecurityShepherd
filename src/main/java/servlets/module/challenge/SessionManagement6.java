@@ -111,7 +111,6 @@ public class SessionManagement6 extends HttpServlet {
               subPass = (String) passObj;
             }
             log.debug("subName = " + subName);
-            log.debug("subPass = " + subPass);
 
             log.debug("Getting ApplicationRoot");
             String ApplicationRoot = getServletContext().getRealPath("");
@@ -126,19 +125,14 @@ public class SessionManagement6 extends HttpServlet {
             callstmt.execute();
             log.debug("Changes committed.");
 
-            // Filtering password for !, so that it is impossible for users to sign in
-            subPass = subPass.replaceAll("!", "");
-
             callstmt =
                 conn.prepareStatement(
-                    "SELECT userName, userAddress FROM users WHERE userName = ? AND userPassword ="
-                        + " SHA(?)");
+                    "SELECT userName, userAddress FROM users WHERE userName = ? AND userPassword = SHA(?)");
             callstmt.setString(1, subName);
             callstmt.setString(2, subPass);
             log.debug("Executing authUser");
             ResultSet resultSet = callstmt.executeQuery();
             if (resultSet.next()) {
-              // This should never happen. But just in case;
               log.debug("Successful Login");
               // Get key and add it to the output
               String userKey =

@@ -65,6 +65,11 @@ public class DirectObject1 extends HttpServlet {
 
     HttpSession ses = request.getSession(true);
     if (Validate.validateSession(ses)) {
+      String userId = request.getParameter("userId[]");
+      if (!DirectObjectProfileAccess.canViewFirstDirectory(userId)) {
+        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        return;
+      }
       ShepherdLogManager.setRequestIp(
           request.getRemoteAddr(),
           request.getHeader("X-Forwarded-For"),
@@ -73,7 +78,6 @@ public class DirectObject1 extends HttpServlet {
       PrintWriter out = response.getWriter();
       out.print(getServletInfo());
       try {
-        String userId = request.getParameter("userId[]");
         log.debug("User Submitted - " + userId);
         String ApplicationRoot = getServletContext().getRealPath("");
         log.debug("Servlet root = " + ApplicationRoot);
@@ -91,12 +95,12 @@ public class DirectObject1 extends HttpServlet {
           String privateMessage = resultSet.getString(2);
           htmlOutput =
               "<h2 class='title'>"
-                  + userName
+                  + Encode.forHtml(userName)
                   + "'s "
                   + bundle.getString("response.message")
                   + "</h2>"
                   + "<p>"
-                  + privateMessage
+                  + Encode.forHtml(privateMessage)
                   + "</p>";
         } else {
           log.debug("No Profile Found");
