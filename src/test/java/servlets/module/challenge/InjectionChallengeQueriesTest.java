@@ -94,6 +94,14 @@ class InjectionChallengeQueriesTest {
   }
 
   @Test
+  void storedProcedureAddressRespectsDatabaseParameterLength() {
+    String maxAddress = new String(new char[128]).replace('\0', 'a');
+    assertFalse(InjectionChallengeQueries.validStoredProcedureAddress(null));
+    assertTrue(InjectionChallengeQueries.validStoredProcedureAddress(maxAddress));
+    assertFalse(InjectionChallengeQueries.validStoredProcedureAddress(maxAddress + "a"));
+  }
+
+  @Test
   void gamerLookupUsesLiteralIdRatherThanJavaScript() {
     DBObject query = NoSqlInjection1.gamerById(ATTACK);
     assertEquals(ATTACK, query.get("_id"));

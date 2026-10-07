@@ -73,6 +73,10 @@ public class SqlInjectionStoredProcedure extends HttpServlet {
       try {
         String userIdentity = request.getParameter("userIdentity");
         log.debug("User Submitted - " + userIdentity);
+        if (!InjectionChallengeQueries.validStoredProcedureAddress(userIdentity)) {
+          out.write("<p>" + bundle.getString("response.noResults") + "</p>");
+          return;
+        }
         String ApplicationRoot = getServletContext().getRealPath("");
 
         log.debug("Getting Connection to Database");
@@ -112,13 +116,7 @@ public class SqlInjectionStoredProcedure extends HttpServlet {
         }
       } catch (SQLException e) {
         log.debug("SQL Error caught - " + e.toString());
-        htmlOutput +=
-            "<p>"
-                + errors.getString("error.detected")
-                + "</p>"
-                + "<p>"
-                + Encode.forHtml(e.toString())
-                + "</p>";
+        htmlOutput = "<p>" + errors.getString("error.detected") + "</p>";
       } catch (Exception e) {
         out.write(errors.getString("error.funky"));
         log.fatal(levelName + " - " + e.toString());

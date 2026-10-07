@@ -94,4 +94,9 @@ final class InjectionChallengeQueries {
     statement.setString(1, address);
     return statement;
   }
+
+  static boolean validStoredProcedureAddress(String address) {
+    // The findUser procedure declares its argument as VARCHAR(128).
+    return address != null && address.length() <= 128;
+  }
 }
