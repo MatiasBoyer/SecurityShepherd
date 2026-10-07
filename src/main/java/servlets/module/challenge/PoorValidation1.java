@@ -11,7 +11,6 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import utils.Hash;
 import utils.ShepherdLogManager;
 import utils.Validate;
 
@@ -37,14 +36,10 @@ import utils.Validate;
 public class PoorValidation1 extends HttpServlet {
 
   private static final String levelName = "Poor Validation 2";
-  private static String levelSolution =
-      "d30475881612685092e5ec469317dcc5ccc1f548a97bfdb041236b5bba7627bf";
-  public static String levelHash =
-      "ca0e89caf3c50dbf9239a0b3c6f6c17869b2a1e2edc3aa6f029fd30925d66c7e";
   private static final long serialVersionUID = 1L;
   private static final Logger log = LogManager.getLogger(PoorValidation1.class);
 
-  /** Shopping cart addition algorithm does not check for negative numbers on amounts */
+  /** Processes a fruit order after validating all submitted quantities. */
   public void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     // Setting IpAddress To Log and taking header for original IP if forwarded from
@@ -58,33 +53,27 @@ public class PoorValidation1 extends HttpServlet {
           ResourceBundle.getBundle(
               "i18n.servlets.challenges.poorValidation.poorValidationStrings", locale);
 
-      String currentUser = ses.getAttribute("userName").toString();
       ShepherdLogManager.setRequestIp(
-          request.getRemoteAddr(), request.getHeader("X-Forwarded-For"), currentUser);
+          request.getRemoteAddr(),
+          request.getHeader("X-Forwarded-For"),
+          ses.getAttribute("userName").toString());
       log.debug(levelName + " servlet accessed by: " + ses.getAttribute("userName").toString());
       PrintWriter out = response.getWriter();
       out.print(getServletInfo());
       String htmlOutput = new String();
       try {
-        int pineappleAmount = Integer.parseInt(request.getParameter("pineappleAmount"));
+        int pineappleAmount = CartPricing.parseQuantity(request.getParameter("pineappleAmount"));
         log.debug("pineappleAmount - " + pineappleAmount);
-        int orangeAmount = Integer.parseInt(request.getParameter("orangeAmount"));
+        int orangeAmount = CartPricing.parseQuantity(request.getParameter("orangeAmount"));
         log.debug("orangeAmount - " + orangeAmount);
-        int appleAmount = Integer.parseInt(request.getParameter("appleAmount"));
+        int appleAmount = CartPricing.parseQuantity(request.getParameter("appleAmount"));
         log.debug("appleAmount - " + appleAmount);
-        int bananaAmount = Integer.parseInt(request.getParameter("bananaAmount"));
+        int bananaAmount = CartPricing.parseQuantity(request.getParameter("bananaAmount"));
         log.debug("bananaAmount - " + bananaAmount);
 
-        // Working out costs
-        int pineappleCost = pineappleAmount * 30;
-        int orangeCost = orangeAmount * 3000;
-        int appleCost = appleAmount * 45;
-        int bananaCost = bananaAmount * 15;
-
-        htmlOutput = new String();
-
         // Work Out Final Cost
-        int finalCost = pineappleCost + appleCost + bananaCost + orangeCost;
+        long finalCost =
+            CartPricing.total(pineappleAmount, orangeAmount, appleAmount, bananaAmount);
 
         // Output Order
         htmlOutput =
@@ -99,15 +88,6 @@ public class PoorValidation1 extends HttpServlet {
                 + " <a><strong>$"
                 + finalCost
                 + "</strong></a></p>";
-        if (finalCost <= 0 && orangeAmount > 0) {
-          htmlOutput +=
-              "<br><p>"
-                  + bundle.getString("poorValidation.freeOranges")
-                  + " - "
-                  + Hash.generateUserSolution(levelSolution, currentUser)
-                  + "</p>";
-        }
-
       } catch (Exception e) {
         log.debug("Didn't complete order: " + e.toString());
         htmlOutput += "<p>" + bundle.getString("poorValidation.badOrder") + "</p>";

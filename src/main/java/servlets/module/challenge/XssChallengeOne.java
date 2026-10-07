@@ -1,6 +1,5 @@
 package servlets.module.challenge;
 
-import dbProcs.Getter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Locale;
@@ -13,11 +12,9 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import utils.FindXSS;
-import utils.Hash;
+import org.owasp.encoder.Encode;
 import utils.ShepherdLogManager;
 import utils.Validate;
-import utils.XssFilter;
 
 /**
  * Cross Site Scripting Challenge One <br>
@@ -45,12 +42,7 @@ public class XssChallengeOne extends HttpServlet {
   private static String levelHash =
       "d72ca2694422af2e6b3c5d90e4c11e7b4575a7bc12ee6d0a384ac2469449e8fa";
 
-  /**
-   * Cross Site Request Forgery safe Reflected XSS vulnerability. cannot be remotly deployed, and
-   * therfore only is executable against the person initating the funciton.
-   *
-   * @param searchTerm To be spat back out at the user after been filtered
-   */
+  /** Returns search text as encoded HTML content after validating the session and CSRF token. */
   public void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     // Setting IpAddress To Log and taking header for original IP if forwarded from proxy
@@ -76,35 +68,14 @@ public class XssChallengeOne extends HttpServlet {
         Object tokenParmeter = request.getParameter("csrfToken");
         if (Validate.validateTokens(tokenCookie, tokenParmeter)) {
           String searchTerm = request.getParameter("searchTerm");
-          log.debug("User Submitted - " + searchTerm);
-          searchTerm = XssFilter.levelOne(searchTerm);
-          log.debug("After Filtering - " + searchTerm);
-          String htmlOutput = new String();
-          if (FindXSS.search(searchTerm)) {
-            htmlOutput =
-                "<h2 class='title'>"
-                    + bundle.getString("result.wellDone")
-                    + "</h2>"
-                    + "<p>"
-                    + bundle.getString("result.youDidIt")
-                    + "<br />"
-                    + bundle.getString("result.resultKey")
-                    + " <a>"
-                    + Hash.generateUserSolution(
-                        Getter.getModuleResultFromHash(
-                            getServletContext().getRealPath(""), levelHash),
-                        (String) ses.getAttribute("userName"))
-                    + "</a>";
-          }
-          log.debug("Adding searchTerm to Html: " + searchTerm);
-          htmlOutput +=
+          String htmlOutput =
               "<h2 class='title'>"
                   + bundle.getString("response.searchResults")
                   + "</h2>"
                   + "<p>"
                   + bundle.getString("response.noResults")
                   + " "
-                  + searchTerm
+                  + Encode.forHtmlContent(searchTerm == null ? "" : searchTerm)
                   + "</p>";
           log.debug("Outputting HTML");
           out.write(htmlOutput);

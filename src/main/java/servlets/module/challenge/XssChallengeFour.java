@@ -1,6 +1,5 @@
 package servlets.module.challenge;
 
-import dbProcs.Getter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Locale;
@@ -13,11 +12,10 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import utils.FindXSS;
-import utils.Hash;
+import org.owasp.encoder.Encode;
+import utils.SafeHttpUrl;
 import utils.ShepherdLogManager;
 import utils.Validate;
-import utils.XssFilter;
 
 /**
  * Cross Site Scripting Challenge Four control class. <br>
@@ -45,12 +43,7 @@ public class XssChallengeFour extends HttpServlet {
       "06f81ca93f26236112f8e31f32939bd496ffe8c9f7b564bce32bd5e3a8c2f751";
   private static String levelName = "XSS Challenge 4";
 
-  /**
-   * Cross Site Request Forgery safe Reflected XSS vulnerability. cannot be remotely exploited, and
-   * there fore only is executable against the person initiating the function.
-   *
-   * @param searchTerm To be spat back out at the user after been encoded for wrong HTML Context
-   */
+  /** Validates HTTP links and encodes their URL for an HTML href attribute. */
   public void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     // Setting IpAddress To Log and taking header for original IP if forwarded from proxy
@@ -75,51 +68,24 @@ public class XssChallengeFour extends HttpServlet {
         Cookie tokenCookie = Validate.getToken(request.getCookies());
         Object tokenParmeter = request.getParameter("csrfToken");
         if (Validate.validateTokens(tokenCookie, tokenParmeter)) {
-          String htmlOutput = new String();
-          String userPost = new String();
-          String searchTerm = request.getParameter("searchTerm");
-          log.debug("User Submitted - " + searchTerm);
-          if (!searchTerm.startsWith("http")) {
-            searchTerm = "https://www.owasp.org/index.php/OWASP_Security_Shepherd";
-            userPost =
-                "<a href=\""
-                    + searchTerm
-                    + "\" alt=\"OWASP Security Shepherd\">"
-                    + searchTerm
-                    + "</a>";
-          } else {
-
-            searchTerm = XssFilter.encodeForHtml(searchTerm);
-            userPost =
-                "<a href=\"" + searchTerm + "\" alt=\"" + searchTerm + "\">" + searchTerm + "</a>";
-            log.debug("After Encoding - " + searchTerm);
-            if (FindXSS.search(userPost)) {
-              htmlOutput =
-                  "<h2 class='title'>"
-                      + bundle.getString("result.wellDone")
-                      + "</h2>"
-                      + "<p>"
-                      + bundle.getString("result.youDidIt")
-                      + "<br />"
-                      + bundle.getString("result.resultKey")
-                      + " <a>"
-                      + Hash.generateUserSolution(
-                          Getter.getModuleResultFromHash(
-                              getServletContext().getRealPath(""), levelHash),
-                          (String) ses.getAttribute("userName"))
-                      + "</a>";
-            }
-          }
-          log.debug("Adding searchTerm to Html: " + searchTerm);
-          htmlOutput +=
+          String searchTerm =
+              SafeHttpUrl.validate(
+                  request.getParameter("searchTerm"),
+                  "https://www.owasp.org/index.php/OWASP_Security_Shepherd");
+          String userPost =
+              "<a href=\""
+                  + Encode.forHtmlAttribute(searchTerm)
+                  + "\" alt=\"OWASP Security Shepherd\">"
+                  + Encode.forHtmlContent(searchTerm)
+                  + "</a>";
+          String htmlOutput =
               "<h2 class='title'>"
                   + bundle.getString("response.yourPost")
                   + "</h2>"
                   + "<p>"
                   + bundle.getString("response.linkPosted")
                   + "</p> "
-                  + userPost
-                  + "</p>";
+                  + userPost;
           out.write(htmlOutput);
         }
       } else {

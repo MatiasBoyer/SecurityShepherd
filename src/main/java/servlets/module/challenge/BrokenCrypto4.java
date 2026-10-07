@@ -1,7 +1,6 @@
 package servlets.module.challenge;
 
 import dbProcs.Database;
-import dbProcs.Getter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Connection;
@@ -16,7 +15,6 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import utils.Hash;
 import utils.ShepherdLogManager;
 import utils.Validate;
 
@@ -42,8 +40,6 @@ import utils.Validate;
 public class BrokenCrypto4 extends HttpServlet {
 
   private static final String levelName = new String("Broken Crypto 4");
-  private static final String levelHash =
-      new String("b927fc4d8c9f70a78f8b6fc46a0cc18533a88b2363054a1f391fe855954d12f9");
   private static final long serialVersionUID = 1L;
   private static final Logger log = LogManager.getLogger(BrokenCrypto4.class);
 
@@ -81,58 +77,50 @@ public class BrokenCrypto4 extends HttpServlet {
         int bananaAmount = validateAmount(Integer.parseInt(request.getParameter("bananaAmount")));
         log.debug("bananaAmount - " + bananaAmount);
         String couponCode = request.getParameter("couponCode");
-        log.debug("couponCode - " + couponCode);
 
         // Working out costs
-        int pineappleCost = pineappleAmount * 30;
-        int orangeCost = orangeAmount * 3000;
-        int appleCost = appleAmount * 45;
-        int bananaCost = bananaAmount * 15;
+        long pineappleCost = (long) pineappleAmount * 30;
+        long orangeCost = (long) orangeAmount * 3000;
+        long appleCost = (long) appleAmount * 45;
+        long bananaCost = (long) bananaAmount * 15;
         int perCentOffPineapple = 0; // Will search for coupons in DB and update this int
         int perCentOffOrange = 0; // Will search for coupons in DB and update this int
         int perCentOffApple = 0; // Will search for coupons in DB and update this int
         int perCentOffBanana = 0; // Will search for coupons in DB and update this int
 
         htmlOutput = new String();
-        Connection conn = Database.getChallengeConnection(applicationRoot, "CryptoChallengeShop");
         log.debug("Looking for Coupons");
-        PreparedStatement prepstmt =
-            conn.prepareStatement("SELECT itemId, perCentOff FROM coupons WHERE couponCode = ?");
-        prepstmt.setString(1, couponCode);
-        ResultSet coupons = prepstmt.executeQuery();
-        try {
-          if (coupons.next()) {
-            if (coupons.getInt(1) == 1) // Pineapple
-            {
-              log.debug("Found coupon for %" + coupons.getInt(2) + " off Pineapple");
-              perCentOffPineapple = coupons.getInt(2);
-            } else if (coupons.getInt(1) == 2) // Orange
-            {
-              log.debug("Found coupon for %" + coupons.getInt(2) + " off Orange");
-              perCentOffOrange = coupons.getInt(2);
-            } else if (coupons.getInt(1) == 3) // Apple
-            {
-              log.debug("Found coupon for %" + coupons.getInt(2) + " off Apple");
-              perCentOffApple = coupons.getInt(2);
-            } else if (coupons.getInt(1) == 4) // Banana
-            {
-              log.debug("Found coupon for %" + coupons.getInt(2) + " off Banana");
-              perCentOffBanana = coupons.getInt(2);
+        try (Connection conn =
+                Database.getChallengeConnection(applicationRoot, "CryptoChallengeShop");
+            PreparedStatement prepstmt =
+                conn.prepareStatement(
+                    "SELECT itemId, perCentOff FROM coupons WHERE couponCode = ?")) {
+          prepstmt.setString(1, couponCode);
+          try (ResultSet coupons = prepstmt.executeQuery()) {
+            if (coupons.next()) {
+              int itemId = coupons.getInt("itemId");
+              int percentOff = coupons.getInt("perCentOff");
+              if (itemId == 1) {
+                perCentOffPineapple = percentOff;
+              } else if (itemId == 2) {
+                perCentOffOrange = percentOff;
+              } else if (itemId == 3) {
+                perCentOffApple = percentOff;
+              } else if (itemId == 4) {
+                perCentOffBanana = percentOff;
+              }
+            } else {
+              log.debug("Invalid Coupon Code");
             }
-          } else {
-            log.debug("Invalid Coupon Code");
           }
-        } catch (Exception e) {
-          log.debug("Could Not Find Coupon: " + e.toString());
         }
-        conn.close();
 
         // Work Out Final Cost
-        pineappleCost = pineappleCost - (pineappleCost * (perCentOffPineapple / 100));
-        appleCost = appleCost - (appleCost * (perCentOffApple / 100));
-        bananaCost = bananaCost - (bananaCost * (perCentOffBanana / 100));
-        orangeCost = orangeCost - (orangeCost * (perCentOffOrange / 100));
-        int finalCost = pineappleCost + appleCost + bananaAmount + orangeCost;
+        pineappleCost = CartPricing.discounted(pineappleCost, perCentOffPineapple);
+        appleCost = CartPricing.discounted(appleCost, perCentOffApple);
+        bananaCost = CartPricing.discounted(bananaCost, perCentOffBanana);
+        orangeCost = CartPricing.discounted(orangeCost, perCentOffOrange);
+        long finalCost = pineappleCost + appleCost + bananaCost + orangeCost;
 
         // Output Order
         htmlOutput =
@@ -147,18 +135,6 @@ public class BrokenCrypto4 extends HttpServlet {
                 + " <a><strong>$"
                 + finalCost
                 + "</strong></a></p>";
-        if (orangeAmount > 0 && orangeCost == 0) {
-          htmlOutput +=
-              "<p>"
-                  + bundle.getString("insecureCryptoStorage.4.freeOranges")
-                  + " - "
-                  + Hash.generateUserSolution(
-                      Getter.getModuleResultFromHash(
-                          getServletContext().getRealPath(""), levelHash),
-                      (String) ses.getAttribute("userName"))
-                  + "</p>";
-        }
-
       } catch (Exception e) {
         log.debug("Didn't complete order: " + e.toString());
         htmlOutput += "<p>" + bundle.getString("insecureCryptoStorage.4.orderFailed") + "</p>";

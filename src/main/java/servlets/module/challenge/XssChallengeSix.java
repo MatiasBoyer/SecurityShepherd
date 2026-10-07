@@ -1,6 +1,5 @@
 package servlets.module.challenge;
 
-import dbProcs.Getter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Locale;
@@ -13,11 +12,10 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import utils.FindXSS;
-import utils.Hash;
+import org.owasp.encoder.Encode;
+import utils.SafeHttpUrl;
 import utils.ShepherdLogManager;
 import utils.Validate;
-import utils.XssFilter;
 
 /**
  * Cross Site Scripting Challenge Six control class. <br>
@@ -45,12 +43,7 @@ public class XssChallengeSix extends HttpServlet {
       "d330dea1acf21886b685184ee222ea8e0a60589c3940afd6ebf433469e997caf";
   private static final String levelName = "Cross-Site Scripting Challenge Six";
 
-  /**
-   * Cross Site Request Forgery safe Reflected XSS vulnerability. cannot be remotely exploited, and
-   * there fore only is executable against the person initiating the function.
-   *
-   * @param searchTerm To be spat back out at the user after been encoded for wrong HTML Context
-   */
+  /** Validates HTTP links and encodes their URL for an HTML href attribute. */
   public void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
     // Setting IpAddress To Log and taking header for original IP if forwarded from proxy
@@ -75,41 +68,20 @@ public class XssChallengeSix extends HttpServlet {
         Cookie tokenCookie = Validate.getToken(request.getCookies());
         Object tokenParmeter = request.getParameter("csrfToken");
         if (Validate.validateTokens(tokenCookie, tokenParmeter)) {
-          String htmlOutput = new String();
-          String userPost = new String();
-          String searchTerm = request.getParameter("searchTerm");
-          log.debug("User Submitted - " + searchTerm);
-          searchTerm = XssFilter.anotherBadUrlValidate(searchTerm);
-          userPost = "<a href=\"" + searchTerm + "\">Your HTTP Link!</a>";
-          log.debug("After Sanitising - " + searchTerm);
-
-          boolean xssDetected = FindXSS.search(userPost);
-          if (xssDetected) {
-            htmlOutput =
-                "<h2 class='title'>"
-                    + bundle.getString("result.wellDone")
-                    + "</h2>"
-                    + "<p>"
-                    + bundle.getString("result.youDidIt")
-                    + "<br />"
-                    + bundle.getString("result.resultKey")
-                    + " <a>"
-                    + Hash.generateUserSolution(
-                        Getter.getModuleResultFromHash(
-                            getServletContext().getRealPath(""), levelHash),
-                        (String) ses.getAttribute("userName"))
-                    + "</a>";
-          }
-          log.debug("Adding searchTerm to Html: " + searchTerm);
-          htmlOutput +=
+          String searchTerm =
+              SafeHttpUrl.validate(
+                  request.getParameter("searchTerm"),
+                  "https://www.google.com/search?q=What+does+a+HTTP+link+look+like");
+          String userPost =
+              "<a href=\"" + Encode.forHtmlAttribute(searchTerm) + "\">Your HTTP Link!</a>";
+          String htmlOutput =
               "<h2 class='title'>"
                   + bundle.getString("response.yourPost")
                   + "</h2>"
                   + "<p>"
                   + bundle.getString("response.linkPosted")
                   + "</p> "
-                  + userPost
-                  + "</p>";
+                  + userPost;
           out.write(htmlOutput);
         }
       }
