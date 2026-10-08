@@ -21,6 +21,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class SessionManagement2ChangePasswordTest {
 
@@ -166,8 +167,10 @@ class SessionManagement2ChangePasswordTest {
     when(connection.prepareStatement(startsWith("UPDATE users"))).thenReturn(update);
     when(connection.prepareStatement("COMMIT")).thenReturn(commit);
     when(select.executeQuery()).thenReturn(result);
-    when(result.next()).thenReturn(true, false);
+    when(result.next()).thenReturn(true, false, true, false);
     when(result.getInt(1)).thenReturn(12);
+    String oldHash = SessionManagement2Credentials.hashPassword("old-private-password");
+    when(result.getString("userPassword")).thenReturn(oldHash);
     SessionManagement2ChangePassword servlet =
         new SessionManagement2ChangePassword() {
           @Override
@@ -196,10 +199,25 @@ class SessionManagement2ChangePasswordTest {
       assertEquals(ownerOutput, otherOutput.toString());
     }
 
-    verify(update).setString(1, "new-private-password");
+    HttpServletRequest wrongPasswordRequest = resetRequest(session, email, token);
+    when(wrongPasswordRequest.getParameter("currentPassword")).thenReturn("wrong-password");
+    HttpServletResponse wrongPasswordResponse = mock(HttpServletResponse.class);
+    StringWriter wrongPasswordOutput = new StringWriter();
+    PrintWriter wrongPasswordWriter = new PrintWriter(wrongPasswordOutput);
+    when(wrongPasswordResponse.getWriter()).thenReturn(wrongPasswordWriter);
+    servlet.doPost(wrongPasswordRequest, wrongPasswordResponse);
+    wrongPasswordWriter.flush();
+    assertEquals(ownerOutput, wrongPasswordOutput.toString());
+
+    ArgumentCaptor<String> replacementHash = ArgumentCaptor.forClass(String.class);
+    verify(update).setString(org.mockito.ArgumentMatchers.eq(1), replacementHash.capture());
+    assertTrue(
+        SessionManagement2Credentials.passwordMatches(
+            replacementHash.getValue(), "new-private-password"));
     verify(update).setString(3, email);
+    verify(update).setString(4, oldHash);
     verify(update, times(1)).executeUpdate();
-    verify(connection, times(1)).prepareStatement(startsWith("SELECT userId"));
+    verify(connection, times(2)).prepareStatement(startsWith("SELECT userId"));
     verify(response, never()).sendError(anyInt());
     assertTrue(ownerOutput.contains("Password change request received."));
     assertFalse(ownerOutput.contains("new-private-password"));
@@ -211,6 +229,7 @@ class SessionManagement2ChangePasswordTest {
     when(request.getSession(true)).thenReturn(session);
     when(request.getRemoteAddr()).thenReturn("127.0.0.1");
     when(request.getParameter("subEmail")).thenReturn(email);
+    when(request.getParameter("currentPassword")).thenReturn("old-private-password");
     when(request.getParameter("newPassword")).thenReturn("new-private-password");
     when(request.getParameter("csrfToken")).thenReturn(token);
     return request;

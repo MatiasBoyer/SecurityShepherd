@@ -48,10 +48,8 @@ class SessionManagement2Test {
     ServletContext context = mock(ServletContext.class);
     when(context.getRealPath("")).thenReturn("/test");
     Connection connection = mock(Connection.class);
-    PreparedStatement commit = mock(PreparedStatement.class);
     PreparedStatement login = mock(PreparedStatement.class);
     ResultSet result = mock(ResultSet.class);
-    when(connection.prepareStatement("COMMIT")).thenReturn(commit);
     when(connection.prepareStatement(startsWith("SELECT userName, userAddress"))).thenReturn(login);
     when(login.executeQuery()).thenReturn(result);
     when(result.next()).thenReturn(false);
@@ -66,6 +64,9 @@ class SessionManagement2Test {
           protected Connection getChallengeConnection(String applicationRoot) {
             return connection;
           }
+
+          @Override
+          protected void ensureInitialCredentials(String applicationRoot) {}
         };
 
     servlet.doPost(request, response);

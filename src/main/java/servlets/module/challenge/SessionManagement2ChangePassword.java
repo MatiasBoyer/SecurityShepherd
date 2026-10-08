@@ -49,6 +49,7 @@ public class SessionManagement2ChangePassword extends HttpServlet {
    * Changes a sub-application password only for its authenticated owner.
    *
    * @param subEmail Sub schema user email address
+   * @param currentPassword Current password of the authenticated sub-application account
    * @param newPassword New password chosen by the authenticated user
    */
   public void doPost(HttpServletRequest request, HttpServletResponse response)
@@ -78,13 +79,19 @@ public class SessionManagement2ChangePassword extends HttpServlet {
         log.debug("Getting Challenge Parameter");
         Object emailObj = request.getParameter("subEmail");
         String subEmail = Validate.validateParameter(emailObj, 128);
+        String submittedCurrentPassword = request.getParameter("currentPassword");
         String submittedPassword = request.getParameter("newPassword");
         String csrfToken = request.getParameter("csrfToken");
-        if (submittedPassword == null && csrfToken == null) {
+        if (submittedCurrentPassword == null && submittedPassword == null && csrfToken == null) {
           out.write(bundle.getString("response.recoveryUnavailable"));
           return;
         }
-        String newPassword = Validate.validateParameter(submittedPassword, 512);
+        String currentPassword =
+            submittedCurrentPassword != null && submittedCurrentPassword.length() <= 512
+                ? submittedCurrentPassword
+                : "";
+        String newPassword =
+            submittedPassword != null && submittedPassword.length() <= 512 ? submittedPassword : "";
         if (!SessionManagement2Security.hasActionToken(ses, csrfToken)) {
           response.sendError(HttpServletResponse.SC_FORBIDDEN);
           return;
@@ -98,12 +105,15 @@ public class SessionManagement2ChangePassword extends HttpServlet {
           String applicationRoot = getServletContext().getRealPath("");
           try (Connection conn = getChallengeConnection(applicationRoot)) {
             int targetUserId = -1;
+            String currentHash = null;
             try (PreparedStatement target =
-                conn.prepareStatement("SELECT userId FROM users WHERE userAddress = ?")) {
+                conn.prepareStatement(
+                    "SELECT userId, userPassword FROM users WHERE userAddress = ?")) {
               target.setString(1, subEmail);
               try (ResultSet users = target.executeQuery()) {
                 if (users.next()) {
                   targetUserId = users.getInt(1);
+                  currentHash = users.getString("userPassword");
                   if (users.next()) {
                     targetUserId = -1;
                   }
@@ -111,13 +121,17 @@ public class SessionManagement2ChangePassword extends HttpServlet {
               }
             }
 
-            if (targetUserId != -1) {
+            if (targetUserId != -1
+                && SessionManagement2Credentials.passwordMatches(currentHash, currentPassword)) {
+              String newHash = SessionManagement2Credentials.hashPassword(newPassword);
               try (PreparedStatement update =
                   conn.prepareStatement(
-                      "UPDATE users SET userPassword = SHA(?) WHERE userId = ? AND userAddress = ?")) {
-                update.setString(1, newPassword);
+                      "UPDATE users SET userPassword = ? WHERE userId = ? AND userAddress = ?"
+                          + " AND userPassword = ?")) {
+                update.setString(1, newHash);
                 update.setInt(2, targetUserId);
                 update.setString(3, subEmail);
+                update.setString(4, currentHash);
                 update.executeUpdate();
               }
               try (PreparedStatement commit = conn.prepareStatement("COMMIT")) {

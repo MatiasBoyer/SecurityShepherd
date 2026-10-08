@@ -110,6 +110,7 @@ if (request.getSession() != null)
 						</td>
 						<div id="resetSubmit">
 							<input id="resetEmail" type="text" autocomplete="off" />
+						<input id="resetCurrentPassword" type="password" autocomplete="current-password" placeholder="Current password" />
 						<input id="resetNewPassword" type="password" autocomplete="new-password" minlength="8" placeholder="New password" />
 						<input type="submit" value="<%= bundle.getString("reset.header") %>" />
 						</div>
@@ -157,6 +158,7 @@ if (request.getSession() != null)
 			
 			$("#leForm2").submit(function(){
 				var theResetEmail = $("#resetEmail").val();
+				var theCurrentPassword = $("#resetCurrentPassword").val();
 				var theNewPassword = $("#resetNewPassword").val();
 				$("#resetSubmit").hide("fast");
 				$("#resetLoadingSign").show("slow");
@@ -166,6 +168,7 @@ if (request.getSession() != null)
 						url: "f5ddc0ed2d30e597ebacf5fdd117083674b19bb92ffc3499121b9e6a12c92959",
 						data: {
 							subEmail: theResetEmail,
+							currentPassword: theCurrentPassword,
 							newPassword: theNewPassword,
 							csrfToken: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(sessionActionToken) %>"
 						},

@@ -100,48 +100,45 @@ public class SessionManagement2 extends HttpServlet {
         String ApplicationRoot = getServletContext().getRealPath("");
         log.debug("Servlet root = " + ApplicationRoot);
 
-        Connection conn = getChallengeConnection(ApplicationRoot);
+        ensureInitialCredentials(ApplicationRoot);
         log.debug("Checking credentials");
-        PreparedStatement callstmt;
-
-        log.debug("Committing changes made to database");
-        callstmt = conn.prepareStatement("COMMIT");
-        callstmt.execute();
-        log.debug("Changes committed.");
-
-        callstmt =
-            conn.prepareStatement(
-                "SELECT userName, userAddress FROM users WHERE userName = ? AND userPassword ="
-                    + " SHA(?)");
-        callstmt.setString(1, subName);
-        callstmt.setString(2, subPass);
-        log.debug("Executing authUser");
-        ResultSet resultSet = callstmt.executeQuery();
-        if (resultSet.next()) {
-          log.debug("Successful Login");
-          SessionManagement2Security.recordSubUser(ses, resultSet.getString("userAddress"));
-          // Get key and add it to the output
-          String userKey =
-              Hash.generateUserSolution(
-                  Getter.getModuleResultFromHash(ApplicationRoot, levelHash),
-                  (String) ses.getAttribute("userName"));
-          htmlOutput =
-              "<h2 class='title'>"
-                  + bundle.getString("response.welcome")
-                  + " "
-                  + Encode.forHtml(resultSet.getString(1))
-                  + "</h2>"
-                  + "<p>"
-                  + bundle.getString("response.resultKey")
-                  + " <a>"
-                  + userKey
-                  + "</a>"
-                  + "</p>";
-        } else {
-          log.debug("Incorrect credentials");
-          htmlOutput = makeTable(bundle);
+        try (Connection conn = getChallengeConnection(ApplicationRoot);
+            PreparedStatement callstmt =
+                conn.prepareStatement(
+                    "SELECT userName, userAddress, userPassword FROM users WHERE userName = ?")) {
+          callstmt.setString(1, subName);
+          log.debug("Executing authUser");
+          try (ResultSet resultSet = callstmt.executeQuery()) {
+            boolean accountFound = resultSet.next();
+            String storedHash = accountFound ? resultSet.getString("userPassword") : null;
+            if (SessionManagement2Credentials.passwordMatches(storedHash, subPass)
+                && accountFound) {
+              log.debug("Successful Login");
+              request.changeSessionId();
+              SessionManagement2Security.recordSubUser(ses, resultSet.getString("userAddress"));
+              // Get key and add it to the output
+              String userKey =
+                  Hash.generateUserSolution(
+                      Getter.getModuleResultFromHash(ApplicationRoot, levelHash),
+                      (String) ses.getAttribute("userName"));
+              htmlOutput =
+                  "<h2 class='title'>"
+                      + bundle.getString("response.welcome")
+                      + " "
+                      + Encode.forHtml(resultSet.getString("userName"))
+                      + "</h2>"
+                      + "<p>"
+                      + bundle.getString("response.resultKey")
+                      + " <a>"
+                      + userKey
+                      + "</a>"
+                      + "</p>";
+            } else {
+              log.debug("Incorrect credentials");
+              htmlOutput = makeTable(bundle);
+            }
+          }
         }
-        Database.closeConnection(conn);
         log.debug("Outputting HTML");
         out.write(htmlOutput);
       } catch (Exception e) {
@@ -156,6 +153,13 @@ public class SessionManagement2 extends HttpServlet {
 
   protected Connection getChallengeConnection(String applicationRoot) throws SQLException {
     return Database.getChallengeConnection(applicationRoot, "BrokenAuthAndSessMangChalTwo");
+  }
+
+  protected void ensureInitialCredentials(String applicationRoot) throws SQLException, IOException {
+    try (Connection connection = getChallengeConnection(applicationRoot)) {
+      SessionManagement2Credentials.provisionIfNeeded(
+          connection, SessionManagement2Credentials.credentialFile());
+    }
   }
 
   private static String makeTable(ResourceBundle bundle) {

@@ -33,6 +33,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import servlets.module.challenge.SessionManagement2Credentials;
 import servlets.module.challenge.XxeChallenge1;
 import servlets.module.lesson.XxeLesson;
 import utils.Validate;
@@ -290,7 +291,8 @@ public class Setup extends HttpServlet {
                 htmlOutput = bundle.getString("generic.text.setup.success");
               }
               success = true;
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
+              success = false;
               htmlOutput = bundle.getString("generic.text.setup.failed") + ": " + e.getMessage();
               log.error(bundle.getString("generic.text.setup.failed") + ": " + e.getMessage());
               if (!hasDBFile) {
@@ -490,6 +492,12 @@ public class Setup extends HttpServlet {
       try (Statement psProcToexecute = databaseConnection.createStatement()) {
         psProcToexecute.executeUpdate(data);
       }
+    }
+
+    try (Connection challengeConnection =
+        Database.getChallengeConnection(null, "BrokenAuthAndSessMangChalTwo")) {
+      SessionManagement2Credentials.provisionIfNeeded(
+          challengeConnection, SessionManagement2Credentials.credentialFile());
     }
   }
 
