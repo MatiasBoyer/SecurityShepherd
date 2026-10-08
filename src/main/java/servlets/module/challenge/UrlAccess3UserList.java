@@ -68,15 +68,11 @@ public class UrlAccess3UserList extends HttpServlet {
       String htmlOutput = new String();
 
       try {
-        String currentUser =
-            "admin".equals(ses.getAttribute("userRole")) ? "MrJohnReillyTheSecond" : "aGuest";
-        ses.setAttribute("urlAccessThreeUser", currentUser);
+        String currentUser = UrlAccess3.currentUser(ses);
         String ApplicationRoot = getServletContext().getRealPath("");
         Connection conn = Database.getChallengeConnection(ApplicationRoot, "UrlAccessThree");
         PreparedStatement callstmt;
-        callstmt =
-            conn.prepareStatement(
-                "SELECT userName FROM users WHERE userRole = 'admin' OR userName = ?");
+        callstmt = conn.prepareStatement("SELECT userName FROM users WHERE userName = ?");
         callstmt.setString(1, currentUser);
         log.debug("Getting User List");
         htmlOutput = new String();

@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 class UrlAccess3SessionIdentityTest {
 
   @Test
-  void forgedSuperAdminCookieDoesNotElevateGuest() throws Exception {
+  void forgedSuperAdminCookieDoesNotElevatePlatformAdministrator() throws Exception {
     HttpServletRequest request = mock(HttpServletRequest.class);
     HttpServletResponse response = mock(HttpServletResponse.class);
     HttpSession session = mock(HttpSession.class);
@@ -32,7 +32,7 @@ class UrlAccess3SessionIdentityTest {
     when(request.getRemoteAddr()).thenReturn("127.0.0.1");
     when(request.getParameter("userId")).thenReturn("d3d9446802a44259755d38e6d163e820");
     when(request.getParameter("secure")).thenReturn("true");
-    when(session.getAttribute("userRole")).thenReturn("player");
+    when(session.getAttribute("userRole")).thenReturn("admin");
     when(session.getAttribute("userName")).thenReturn("player-one");
     String forgedPerson =
         Base64.getEncoder()

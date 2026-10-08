@@ -103,7 +103,7 @@ public class SessionManagement6SecretQuestion extends HttpServlet {
             callstmt.setString(2, subAns);
             log.debug("Running secret Answer Check");
             ResultSet rs = callstmt.executeQuery();
-            if (rs.next()) {
+            if (rs.next() && canUseAnswer(ses, rs.getString(1))) {
               log.debug("Correct Answer Submitted");
               // Get key and add it to the output
               String userKey =
@@ -267,5 +267,10 @@ public class SessionManagement6SecretQuestion extends HttpServlet {
         conn.prepareStatement("SELECT secretQuestion FROM users WHERE userAddress = ?");
     statement.setString(1, email);
     return statement;
+  }
+
+  static boolean canUseAnswer(HttpSession session, String accountName) {
+    return accountName != null
+        && accountName.equals(session.getAttribute("sessionManagementSixAuthenticatedUser"));
   }
 }

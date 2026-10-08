@@ -16,6 +16,16 @@ import org.junit.jupiter.api.Test;
 class SessionManagementAuthorizationTest {
 
   @Test
+  void sixthChallengeAcceptsAnAnswerOnlyForTheSignedInAccount() {
+    HttpSession session = mock(HttpSession.class);
+    when(session.getAttribute("sessionManagementSixAuthenticatedUser")).thenReturn("manager");
+
+    assertTrue(SessionManagement6SecretQuestion.canUseAnswer(session, "manager"));
+    assertFalse(SessionManagement6SecretQuestion.canUseAnswer(session, "administrator"));
+    assertFalse(SessionManagement6SecretQuestion.canUseAnswer(session, null));
+  }
+
+  @Test
   void seventhChallengeAcceptsAnAnswerOnlyForTheSignedInAccount() {
     HttpSession session = mock(HttpSession.class);
     when(session.getAttribute("sessionManagementSevenAuthenticatedUser")).thenReturn("manager");
@@ -28,7 +38,8 @@ class SessionManagementAuthorizationTest {
   @Test
   void eighthChallengeDoesNotAcceptACookieAsAuthority() {
     HttpSession session = mock(HttpSession.class);
-    when(session.getAttribute("userRole")).thenReturn("player", "admin");
+    when(session.getAttribute("userRole")).thenReturn("admin");
+    when(session.getAttribute("sessionManagementEightRole")).thenReturn(null, "superuser");
 
     assertFalse(SessionManagement8.canAccessPrivilegedView(session));
     assertTrue(SessionManagement8.canAccessPrivilegedView(session));
@@ -50,7 +61,7 @@ class SessionManagementAuthorizationTest {
     when(request.getParameter("returnPassword")).thenReturn("false");
     when(request.getParameter("adminDetected")).thenReturn("false");
     when(response.getWriter()).thenReturn(writer);
-    when(session.getAttribute("userRole")).thenReturn("player");
+    when(session.getAttribute("userRole")).thenReturn("admin");
     when(session.getAttribute("userName")).thenReturn("player-one");
 
     new SessionManagement8().doPost(request, response);

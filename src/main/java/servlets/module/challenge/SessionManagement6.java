@@ -80,6 +80,8 @@ public class SessionManagement6 extends HttpServlet {
       String htmlOutput = new String();
       log.debug(levelName + " Servlet Accessed");
       try {
+        // A failed sign-in must not retain a previously authenticated sub-application user.
+        ses.removeAttribute("sessionManagementSixAuthenticatedUser");
         log.debug("Getting Cookies");
         Cookie userCookies[] = request.getCookies();
         int i = 0;
@@ -134,6 +136,7 @@ public class SessionManagement6 extends HttpServlet {
             ResultSet resultSet = callstmt.executeQuery();
             if (resultSet.next()) {
               log.debug("Successful Login");
+              ses.setAttribute("sessionManagementSixAuthenticatedUser", resultSet.getString(1));
               // Get key and add it to the output
               String userKey =
                   Hash.generateUserSolution(

@@ -43,8 +43,8 @@ public class UrlAccess3 extends HttpServlet {
       "e40333fc2c40b8e0169e433366350f55c77b82878329570efa894838980de5b4";
 
   /**
-   * Returns the privileged view only for an authenticated administrator. The browser's
-   * "currentPerson" cookie is not an authorization source.
+   * Returns the privileged view only for an authenticated sub-application super administrator. The
+   * browser's "currentPerson" cookie is not an authorization source.
    *
    * @param userId Red herring that is pre set to d3d9446802a44259755d38e6d163e820
    * @param secure Red herring that is pre set to true
@@ -76,9 +76,7 @@ public class UrlAccess3 extends HttpServlet {
         log.debug(levelName + " servlet accessed by: " + ses.getAttribute("userName").toString());
         // The browser's currentPerson cookie is only a UI hint. Sub-application identity is
         // established by server-side session state, never by a client-controlled Base64 value.
-        String currentPerson =
-            "admin".equals(ses.getAttribute("userRole")) ? "MrJohnReillyTheSecond" : "aGuest";
-        ses.setAttribute("urlAccessThreeUser", currentPerson);
+        String currentPerson = currentUser(ses);
         String htmlOutput = null;
         if (currentPerson.equals("MrJohnReillyTheSecond")) {
           log.debug("Authenticated super administrator detected");
@@ -154,5 +152,13 @@ public class UrlAccess3 extends HttpServlet {
       out.write(errors.getString("error.funky"));
       log.fatal(levelName + " - " + e.toString());
     }
+  }
+
+  static String currentUser(HttpSession session) {
+    if ("MrJohnReillyTheSecond".equals(session.getAttribute("urlAccessThreeUser"))) {
+      return "MrJohnReillyTheSecond";
+    }
+    session.setAttribute("urlAccessThreeUser", "aGuest");
+    return "aGuest";
   }
 }

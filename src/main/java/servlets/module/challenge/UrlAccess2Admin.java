@@ -59,7 +59,8 @@ public class UrlAccess2Admin extends HttpServlet {
         ResourceBundle.getBundle("i18n.servlets.challenges.urlAccess.urlAccess2", locale);
 
     if (Validate.validateSession(ses)) {
-      if (!"admin".equals(ses.getAttribute("userRole"))) {
+      // Platform administrators are not automatically administrators of this sub-application.
+      if (!Boolean.TRUE.equals(ses.getAttribute("urlAccessTwoAdminAuthorized"))) {
         response.sendError(HttpServletResponse.SC_FORBIDDEN);
         return;
       }

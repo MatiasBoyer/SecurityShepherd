@@ -43,7 +43,7 @@ public class SessionManagement8 extends HttpServlet {
       "714d8601c303bbef8b5cabab60b1060ac41f0d96f53b6ea54705bb1ea4316334";
 
   /**
-   * Returns the privileged view only for an authenticated administrator. The browser's
+   * Returns the privileged view only for an authenticated sub-application superuser. The browser's
    * "challengeRole" cookie is not an authorization source.
    *
    * @param returnUserRole Red herring
@@ -77,7 +77,7 @@ public class SessionManagement8 extends HttpServlet {
             ses.getAttribute("userName").toString());
         log.debug(levelName + " servlet accessed by: " + ses.getAttribute("userName").toString());
         String htmlOutput = new String();
-        // Only the authenticated session role can grant access to the privileged view.
+        // Only a role established for this challenge can grant access to the privileged view.
         if (canAccessPrivilegedView(ses)) {
           log.debug("Authenticated administrator detected");
           String userKey =
@@ -145,6 +145,6 @@ public class SessionManagement8 extends HttpServlet {
   }
 
   static boolean canAccessPrivilegedView(HttpSession session) {
-    return "admin".equals(session.getAttribute("userRole"));
+    return "superuser".equals(session.getAttribute("sessionManagementEightRole"));
   }
 }
