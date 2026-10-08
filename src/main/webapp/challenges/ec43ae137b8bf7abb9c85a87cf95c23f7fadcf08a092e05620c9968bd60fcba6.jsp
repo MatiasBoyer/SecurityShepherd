@@ -51,6 +51,7 @@ if (request.getSession() != null)
 	if (Validate.validateSession(ses) && tokenCookie != null)
 	{
 		ShepherdLogManager.logEvent(request.getRemoteAddr(), request.getHeader("X-Forwarded-For"), levelName + " has been accessed by " + ses.getAttribute("userName").toString(), ses.getAttribute("userName"));
+		servlets.module.challenge.SessionChallengeSecurity.issueChallengeCookie(ses, request, response, "challenge4", "SubSessionID");
 %>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>

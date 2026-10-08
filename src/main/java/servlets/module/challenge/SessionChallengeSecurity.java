@@ -4,6 +4,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 /** Server-held identities and reset grants for the session management challenges. */
@@ -12,6 +15,7 @@ public final class SessionChallengeSecurity {
   private static final String SUBUSER_PREFIX = "authenticatedChallengeUser:";
   private static final String RESET_GRANT = "sessionManagement5ResetGrant";
   private static final String ACTION_TOKEN = "sessionManagementActionToken";
+  private static final String CHALLENGE_COOKIE_PREFIX = "sessionManagementCookie:";
   private static final long RESET_LIFETIME_MILLIS = 10L * 60L * 1000L;
   private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -19,6 +23,70 @@ public final class SessionChallengeSecurity {
 
   static boolean isPlatformAdmin(HttpSession session) {
     return session != null && "admin".equals(session.getAttribute("userRole"));
+  }
+
+  public static void issueChallengeCookie(
+      HttpSession session,
+      HttpServletRequest request,
+      HttpServletResponse response,
+      String challenge,
+      String cookieName) {
+    if (session == null
+        || !(session.getAttribute("userName") instanceof String)
+        || !(session.getAttribute("userRole") instanceof String)) {
+      return;
+    }
+    String token;
+    synchronized (session) {
+      Object existing = session.getAttribute(CHALLENGE_COOKIE_PREFIX + challenge);
+      if (existing instanceof ChallengeCookieGrant
+          && ((ChallengeCookieGrant) existing).belongsTo(session)) {
+        token = ((ChallengeCookieGrant) existing).token;
+      } else {
+        byte[] randomBytes = new byte[32];
+        RANDOM.nextBytes(randomBytes);
+        token = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+        session.setAttribute(
+            CHALLENGE_COOKIE_PREFIX + challenge,
+            new ChallengeCookieGrant(
+                token,
+                (String) session.getAttribute("userName"),
+                (String) session.getAttribute("userRole")));
+      }
+    }
+    Cookie cookie = new Cookie(cookieName, token);
+    cookie.setHttpOnly(true);
+    cookie.setSecure(request.isSecure());
+    cookie.setPath(request.getContextPath() + "/challenges");
+    response.addCookie(cookie);
+  }
+
+  static boolean hasChallengeCookie(
+      HttpSession session, Cookie[] cookies, String challenge, String cookieName) {
+    if (session == null || cookies == null) {
+      return false;
+    }
+    String suppliedToken = null;
+    for (Cookie cookie : cookies) {
+      if (cookieName.equals(cookie.getName())) {
+        if (suppliedToken != null || cookie.getValue() == null) {
+          return false;
+        }
+        suppliedToken = cookie.getValue();
+      }
+    }
+    if (suppliedToken == null) {
+      return false;
+    }
+    Object candidate = session.getAttribute(CHALLENGE_COOKIE_PREFIX + challenge);
+    if (!(candidate instanceof ChallengeCookieGrant)) {
+      return false;
+    }
+    ChallengeCookieGrant grant = (ChallengeCookieGrant) candidate;
+    return grant.belongsTo(session)
+        && MessageDigest.isEqual(
+            grant.token.getBytes(StandardCharsets.UTF_8),
+            suppliedToken.getBytes(StandardCharsets.UTF_8));
   }
 
   static void recordSubUser(HttpSession session, String challenge, String userName) {
@@ -36,11 +104,13 @@ public final class SessionChallengeSecurity {
         && userName.equals(session.getAttribute(SUBUSER_PREFIX + challenge));
   }
 
-  static boolean mayChangeChallenge2Password(HttpSession session, String email, String token) {
+  static boolean mayChangeChallenge2Password(
+      HttpSession session, String email, String token, boolean adminReauthenticated) {
     return email != null
         && !email.isEmpty()
         && hasActionToken(session, token)
-        && (isSubUser(session, "challenge2", email) || isPlatformAdmin(session));
+        && (isSubUser(session, "challenge2", email)
+            || (isPlatformAdmin(session) && adminReauthenticated));
   }
 
   static String authenticatedSubUser(HttpSession session, String challenge) {
@@ -123,6 +193,24 @@ public final class SessionChallengeSecurity {
       this.userName = userName;
       this.token = token;
       this.issuedAt = issuedAt;
+    }
+  }
+
+  private static final class ChallengeCookieGrant implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+    private final String token;
+    private final String userName;
+    private final String userRole;
+
+    private ChallengeCookieGrant(String token, String userName, String userRole) {
+      this.token = token;
+      this.userName = userName;
+      this.userRole = userRole;
+    }
+
+    private boolean belongsTo(HttpSession session) {
+      return userName.equals(session.getAttribute("userName"))
+          && userRole.equals(session.getAttribute("userRole"));
     }
   }
 }

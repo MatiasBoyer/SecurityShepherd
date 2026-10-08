@@ -50,16 +50,20 @@ class SessionChallengeSecurityTest {
   }
 
   @Test
-  void platformAdministratorCanRecoverChallenge2AccountWithCsrf() {
+  void platformAdministratorNeedsReauthenticationToRecoverChallenge2Account() {
     HttpSession session = TestSession.create();
     session.setAttribute("userRole", "admin");
     String token = SessionChallengeSecurity.issueActionToken(session);
 
     assertFalse(
         SessionChallengeSecurity.mayChangeChallenge2Password(
-            session, "admin@example.test", "wrong"));
+            session, "admin@example.test", "wrong", true));
+    assertFalse(
+        SessionChallengeSecurity.mayChangeChallenge2Password(
+            session, "admin@example.test", token, false));
     assertTrue(
-        SessionChallengeSecurity.mayChangeChallenge2Password(session, "admin@example.test", token));
+        SessionChallengeSecurity.mayChangeChallenge2Password(
+            session, "admin@example.test", token, true));
   }
 
   @Test
@@ -69,11 +73,14 @@ class SessionChallengeSecurityTest {
     String token = SessionChallengeSecurity.issueActionToken(session);
 
     assertFalse(
-        SessionChallengeSecurity.mayChangeChallenge2Password(session, "admin@example.test", token));
+        SessionChallengeSecurity.mayChangeChallenge2Password(
+            session, "admin@example.test", token, false));
     SessionChallengeSecurity.recordSubUser(session, "challenge2", "guest@example.test");
     assertFalse(
-        SessionChallengeSecurity.mayChangeChallenge2Password(session, "admin@example.test", token));
+        SessionChallengeSecurity.mayChangeChallenge2Password(
+            session, "admin@example.test", token, false));
     assertTrue(
-        SessionChallengeSecurity.mayChangeChallenge2Password(session, "guest@example.test", token));
+        SessionChallengeSecurity.mayChangeChallenge2Password(
+            session, "guest@example.test", token, false));
   }
 }

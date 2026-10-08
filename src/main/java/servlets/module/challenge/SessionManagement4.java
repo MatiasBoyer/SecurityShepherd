@@ -43,8 +43,8 @@ public class SessionManagement4 extends HttpServlet {
   private static String levelResult = "238a43b12dde07f39d14599a780ae90f87a23e";
 
   /**
-   * Only a server-authenticated administrator may retrieve the result key. Request parameters and
-   * cookies do not convey privileges.
+   * Only a server-authenticated administrator with this session's opaque challenge cookie may
+   * retrieve the result key. The cookie alone never conveys privileges.
    */
   public void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -70,7 +70,9 @@ public class SessionManagement4 extends HttpServlet {
             ses.getAttribute("userName").toString());
         log.debug(levelName + " servlet accessed by: " + ses.getAttribute("userName").toString());
         String htmlOutput = null;
-        if (SessionChallengeSecurity.isPlatformAdmin(ses)) {
+        if (SessionChallengeSecurity.isPlatformAdmin(ses)
+            && SessionChallengeSecurity.hasChallengeCookie(
+                ses, request.getCookies(), "challenge4", "SubSessionID")) {
           log.debug("Authenticated administrator detected");
           String userKey =
               Hash.generateUserSolution(levelResult, (String) ses.getAttribute("userName"));
