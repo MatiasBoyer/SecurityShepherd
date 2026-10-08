@@ -86,6 +86,60 @@ class SessionManagement2ChangePasswordTest {
     new SessionManagement2ChangePassword().doPost(request, response);
 
     verify(response).sendError(HttpServletResponse.SC_FORBIDDEN);
+
+    HttpServletResponse missingTokenResponse = mock(HttpServletResponse.class);
+    when(missingTokenResponse.getWriter()).thenReturn(new PrintWriter(new StringWriter()));
+    new SessionManagement2ChangePassword()
+        .doPost(resetRequest(session, "owner@example.test", null), missingTokenResponse);
+    verify(missingTokenResponse).sendError(HttpServletResponse.SC_FORBIDDEN);
+  }
+
+  @Test
+  void legacyRecoveryRequestIsUniformAndDoesNotChangePasswords() throws Exception {
+    HttpSession session = TestSession.create();
+    session.setAttribute("userName", "player");
+    session.setAttribute("userRole", "player");
+    SessionChallengeSecurity.recordSubUser(session, "challenge2", "owner@example.test");
+    SessionChallengeSecurity.issueActionToken(session);
+    ServletContext context = mock(ServletContext.class);
+    when(context.getRealPath("")).thenReturn("/test");
+    SessionManagement2ChangePassword servlet =
+        new SessionManagement2ChangePassword() {
+          @Override
+          public ServletContext getServletContext() {
+            return context;
+          }
+
+          @Override
+          protected Connection getChallengeConnection(String applicationRoot) {
+            throw new AssertionError(
+                "Legacy recovery request must not access the challenge database");
+          }
+        };
+    String ownerOutput = null;
+
+    for (String email : new String[] {"owner@example.test", "missing@example.test"}) {
+      HttpServletRequest request = mock(HttpServletRequest.class);
+      when(request.getSession()).thenReturn(session);
+      when(request.getSession(true)).thenReturn(session);
+      when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+      when(request.getParameter("subEmail")).thenReturn(email);
+      HttpServletResponse response = mock(HttpServletResponse.class);
+      StringWriter output = new StringWriter();
+      PrintWriter writer = new PrintWriter(output);
+      when(response.getWriter()).thenReturn(writer);
+
+      servlet.doPost(request, response);
+      writer.flush();
+
+      verify(response, never()).sendError(anyInt());
+      assertTrue(output.toString().contains("Password recovery is unavailable"));
+      if (ownerOutput == null) {
+        ownerOutput = output.toString();
+      } else {
+        assertEquals(ownerOutput, output.toString());
+      }
+    }
   }
 
   @Test

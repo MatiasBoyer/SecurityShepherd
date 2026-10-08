@@ -78,8 +78,13 @@ public class SessionManagement2ChangePassword extends HttpServlet {
         log.debug("Getting Challenge Parameter");
         Object emailObj = request.getParameter("subEmail");
         String subEmail = Validate.validateParameter(emailObj, 128);
-        String newPassword = Validate.validateParameter(request.getParameter("newPassword"), 512);
+        String submittedPassword = request.getParameter("newPassword");
         String csrfToken = request.getParameter("csrfToken");
+        if (submittedPassword == null && csrfToken == null) {
+          out.write(bundle.getString("response.recoveryUnavailable"));
+          return;
+        }
+        String newPassword = Validate.validateParameter(submittedPassword, 512);
         if (!SessionChallengeSecurity.hasActionToken(ses, csrfToken)) {
           response.sendError(HttpServletResponse.SC_FORBIDDEN);
           return;
