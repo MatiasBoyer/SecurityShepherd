@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Locale;
 import java.util.ResourceBundle;
@@ -15,8 +16,6 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
-import utils.Hash;
 import utils.ShepherdLogManager;
 import utils.Validate;
 
@@ -47,12 +46,10 @@ public class SessionManagement2ChangePassword extends HttpServlet {
       "f5ddc0ed2d30e597ebacf5fdd117083674b19bb92ffc3499121b9e6a12c92959";
 
   /**
-   * A user with the submitted email address is set a new random password, the password is also
-   * returned from the database procedure and is forwards through to the HTTP response. This
-   * response is not consumed by the client interface by default, and the user will have to discover
-   * it.
+   * Changes a sub-application password only for its authenticated owner.
    *
    * @param subEmail Sub schema user email address
+   * @param newPassword New password chosen by the authenticated user
    */
   public void doPost(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -76,51 +73,76 @@ public class SessionManagement2ChangePassword extends HttpServlet {
       PrintWriter out = response.getWriter();
       out.print(getServletInfo());
 
-      String htmlOutput = new String();
       log.debug(levelName + " Servlet accessed");
       try {
         log.debug("Getting Challenge Parameter");
         Object emailObj = request.getParameter("subEmail");
-        String subEmail = new String();
-        if (emailObj != null) {
-          subEmail = (String) emailObj;
+        String subEmail = Validate.validateParameter(emailObj, 128);
+        String submittedPassword = request.getParameter("newPassword");
+        String csrfToken = request.getParameter("csrfToken");
+        if (submittedPassword == null && csrfToken == null) {
+          out.write(bundle.getString("response.recoveryUnavailable"));
+          return;
         }
-        log.debug("subEmail = " + subEmail);
+        String newPassword = Validate.validateParameter(submittedPassword, 512);
+        if (!SessionManagement2Security.hasActionToken(ses, csrfToken)) {
+          response.sendError(HttpServletResponse.SC_FORBIDDEN);
+          return;
+        }
+        if (!Validate.isValidPassword(newPassword)) {
+          response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+          return;
+        }
 
-        log.debug("Getting ApplicationRoot");
-        String ApplicationRoot = getServletContext().getRealPath("");
+        if (SessionManagement2Security.mayChangeChallenge2Password(ses, subEmail, csrfToken)) {
+          String applicationRoot = getServletContext().getRealPath("");
+          try (Connection conn = getChallengeConnection(applicationRoot)) {
+            int targetUserId = -1;
+            try (PreparedStatement target =
+                conn.prepareStatement("SELECT userId FROM users WHERE userAddress = ?")) {
+              target.setString(1, subEmail);
+              try (ResultSet users = target.executeQuery()) {
+                if (users.next()) {
+                  targetUserId = users.getInt(1);
+                  if (users.next()) {
+                    targetUserId = -1;
+                  }
+                }
+              }
+            }
 
-        String newPassword = Hash.randomString();
-        try {
-          Connection conn =
-              Database.getChallengeConnection(ApplicationRoot, "BrokenAuthAndSessMangChalTwo");
-          log.debug("Checking credentials");
-          PreparedStatement callstmt =
-              conn.prepareStatement("UPDATE users SET userPassword = SHA(?) WHERE userAddress = ?");
-          callstmt.setString(1, newPassword);
-          callstmt.setString(2, subEmail);
-          log.debug("Executing resetPassword");
-          callstmt.execute();
-          log.debug("Statement executed");
-
-          log.debug("Committing changes made to database");
-          callstmt = conn.prepareStatement("COMMIT");
-          callstmt.execute();
-          log.debug("Changes committed.");
-
-          htmlOutput = Encode.forHtml(newPassword);
-          Database.closeConnection(conn);
-        } catch (SQLException e) {
-          log.error(levelName + " SQL Error: " + e.toString());
+            if (targetUserId != -1) {
+              try (PreparedStatement update =
+                  conn.prepareStatement(
+                      "UPDATE users SET userPassword = SHA(?) WHERE userId = ? AND userAddress = ?")) {
+                update.setString(1, newPassword);
+                update.setInt(2, targetUserId);
+                update.setString(3, subEmail);
+                update.executeUpdate();
+              }
+              try (PreparedStatement commit = conn.prepareStatement("COMMIT")) {
+                commit.execute();
+              }
+            }
+          } catch (SQLException e) {
+            log.error(levelName + " SQL Error: " + e.toString());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return;
+          }
         }
         log.debug("Outputting HTML");
-        out.write(bundle.getString("response.changedTo") + " " + htmlOutput);
+        out.write(bundle.getString("response.requestReceived"));
       } catch (Exception e) {
         out.write(errors.getString("error.funky"));
         log.fatal(levelName + " - " + e.toString());
       }
     } else {
       log.error(levelName + " servlet accessed with no session");
+      response.sendError(HttpServletResponse.SC_FORBIDDEN);
     }
+  }
+
+  protected Connection getChallengeConnection(String applicationRoot) throws SQLException {
+    return Database.getChallengeConnection(applicationRoot, "BrokenAuthAndSessMangChalTwo");
   }
 }

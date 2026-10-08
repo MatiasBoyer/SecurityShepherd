@@ -7,6 +7,7 @@ import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import javax.servlet.ServletException;
@@ -86,7 +87,6 @@ public class SessionManagement2 extends HttpServlet {
         Object passObj = request.getParameter("subPassword");
         String subName = new String();
         String subPass = new String();
-        String userAddress = new String();
         if (nameObj != null) {
           subName = (String) nameObj;
         }
@@ -94,14 +94,13 @@ public class SessionManagement2 extends HttpServlet {
           subPass = (String) passObj;
         }
         log.debug("subName = " + subName);
-        log.debug("subPass = " + subPass);
+        SessionManagement2Security.clearSubUser(ses);
 
         log.debug("Getting ApplicationRoot");
         String ApplicationRoot = getServletContext().getRealPath("");
         log.debug("Servlet root = " + ApplicationRoot);
 
-        Connection conn =
-            Database.getChallengeConnection(ApplicationRoot, "BrokenAuthAndSessMangChalTwo");
+        Connection conn = getChallengeConnection(ApplicationRoot);
         log.debug("Checking credentials");
         PreparedStatement callstmt;
 
@@ -120,6 +119,7 @@ public class SessionManagement2 extends HttpServlet {
         ResultSet resultSet = callstmt.executeQuery();
         if (resultSet.next()) {
           log.debug("Successful Login");
+          SessionManagement2Security.recordSubUser(ses, resultSet.getString("userAddress"));
           // Get key and add it to the output
           String userKey =
               Hash.generateUserSolution(
@@ -138,22 +138,8 @@ public class SessionManagement2 extends HttpServlet {
                   + "</a>"
                   + "</p>";
         } else {
-          log.debug("Incorrect credentials, checking if user name correct");
-          callstmt = conn.prepareStatement("SELECT userAddress FROM users WHERE userName = ?");
-          callstmt.setString(1, subName);
-          log.debug("Executing getAddress");
-          resultSet = callstmt.executeQuery();
-          if (resultSet.next()) {
-            log.debug("User Found");
-            userAddress =
-                bundle.getString("response.badPass")
-                    + " <a>"
-                    + Encode.forHtml(resultSet.getString(1))
-                    + "</a><br/>";
-          } else {
-            userAddress = bundle.getString("response.badUser") + "<br/>";
-          }
-          htmlOutput = makeTable(userAddress, bundle);
+          log.debug("Incorrect credentials");
+          htmlOutput = makeTable(bundle);
         }
         Database.closeConnection(conn);
         log.debug("Outputting HTML");
@@ -164,12 +150,18 @@ public class SessionManagement2 extends HttpServlet {
       }
     } else {
       log.error(levelName + " servlet accessed with no session");
+      response.sendError(HttpServletResponse.SC_FORBIDDEN);
     }
   }
 
-  private static String makeTable(String userAddress, ResourceBundle bundle) {
+  protected Connection getChallengeConnection(String applicationRoot) throws SQLException {
+    return Database.getChallengeConnection(applicationRoot, "BrokenAuthAndSessMangChalTwo");
+  }
+
+  private static String makeTable(ResourceBundle bundle) {
     return "<table>"
-        + userAddress
+        + bundle.getString("response.badCredentials")
+        + "<br/>"
         + "<tr><td>"
         + bundle.getString("form.userName")
         + "</td><td><input type='text' id='subName'/></td></tr>"
