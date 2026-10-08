@@ -1,7 +1,6 @@
 package servlets.module.challenge;
 
 import dbProcs.Database;
-import dbProcs.Getter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Connection;
@@ -45,12 +44,9 @@ public class SessionManagement2ChangePassword extends HttpServlet {
   private static String levelName = "Session Management Challenge Two (Change Pass)";
   public static String levelHash =
       "f5ddc0ed2d30e597ebacf5fdd117083674b19bb92ffc3499121b9e6a12c92959";
-  private static final String UNINITIALIZED_PASSWORD = "default";
 
   /**
-   * Changes a sub-application password for its authenticated owner. A Security Shepherd
-   * administrator can initialize a legacy account only while its unusable seed password remains,
-   * after reauthenticating with the current platform password.
+   * Changes a sub-application password only for its authenticated owner.
    *
    * @param subEmail Sub schema user email address
    * @param newPassword New password chosen by the authenticated user
@@ -89,30 +85,7 @@ public class SessionManagement2ChangePassword extends HttpServlet {
           response.sendError(HttpServletResponse.SC_FORBIDDEN);
           return;
         }
-        boolean ownerAuthorized =
-            SessionChallengeSecurity.mayChangeChallenge2Password(ses, subEmail, csrfToken);
-        String ApplicationRoot = getServletContext().getRealPath("");
-        boolean adminReauthenticated = false;
-        String adminPassword = request.getParameter("adminPassword");
-        if (!ownerAuthorized
-            && SessionChallengeSecurity.isPlatformAdmin(ses)
-            && adminPassword != null
-            && !adminPassword.isEmpty()
-            && adminPassword.length() <= 512) {
-          String[] admin =
-              Getter.authUser(
-                  ApplicationRoot, (String) ses.getAttribute("userName"), adminPassword);
-          adminReauthenticated =
-              admin != null
-                  && admin.length > 2
-                  && "admin".equals(admin[2])
-                  && admin[0].equals(ses.getAttribute("userStamp"))
-                  && admin[1].equals(ses.getAttribute("userName"));
-        }
-        boolean bootstrapAuthorized =
-            SessionChallengeSecurity.mayBootstrapChallenge2Password(
-                ses, csrfToken, adminReauthenticated);
-        if (!ownerAuthorized && !bootstrapAuthorized) {
+        if (!SessionChallengeSecurity.mayChangeChallenge2Password(ses, subEmail, csrfToken)) {
           response.sendError(HttpServletResponse.SC_FORBIDDEN);
           return;
         }
@@ -121,19 +94,12 @@ public class SessionManagement2ChangePassword extends HttpServlet {
           return;
         }
 
-        try (Connection conn =
-            Database.getChallengeConnection(ApplicationRoot, "BrokenAuthAndSessMangChalTwo")) {
-          String selectSql =
-              bootstrapAuthorized
-                  ? "SELECT userId FROM users WHERE BINARY userAddress = BINARY ?"
-                      + " AND userPassword = ?"
-                  : "SELECT userId FROM users WHERE userAddress = ?";
+        String applicationRoot = getServletContext().getRealPath("");
+        try (Connection conn = getChallengeConnection(applicationRoot)) {
           int targetUserId;
-          try (PreparedStatement target = conn.prepareStatement(selectSql)) {
+          try (PreparedStatement target =
+              conn.prepareStatement("SELECT userId FROM users WHERE userAddress = ?")) {
             target.setString(1, subEmail);
-            if (bootstrapAuthorized) {
-              target.setString(2, UNINITIALIZED_PASSWORD);
-            }
             try (ResultSet users = target.executeQuery()) {
               if (!users.next()) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
@@ -147,24 +113,13 @@ public class SessionManagement2ChangePassword extends HttpServlet {
             }
           }
 
-          String updateSql =
-              bootstrapAuthorized
-                  ? "UPDATE users SET userPassword = SHA(?) WHERE userId = ?"
-                      + " AND BINARY userAddress = BINARY ?"
-                      + " AND userPassword = ?"
-                  : "UPDATE users SET userPassword = SHA(?) WHERE userId = ? AND userAddress = ?";
-          try (PreparedStatement update = conn.prepareStatement(updateSql)) {
+          try (PreparedStatement update =
+              conn.prepareStatement(
+                  "UPDATE users SET userPassword = SHA(?) WHERE userId = ? AND userAddress = ?")) {
             update.setString(1, newPassword);
             update.setInt(2, targetUserId);
             update.setString(3, subEmail);
-            if (bootstrapAuthorized) {
-              update.setString(4, UNINITIALIZED_PASSWORD);
-            }
-            int updated = update.executeUpdate();
-            if (bootstrapAuthorized && updated != 1) {
-              response.sendError(HttpServletResponse.SC_FORBIDDEN);
-              return;
-            }
+            update.executeUpdate();
           }
           try (PreparedStatement commit = conn.prepareStatement("COMMIT")) {
             commit.execute();
@@ -185,5 +140,9 @@ public class SessionManagement2ChangePassword extends HttpServlet {
       log.error(levelName + " servlet accessed with no session");
       response.sendError(HttpServletResponse.SC_FORBIDDEN);
     }
+  }
+
+  protected Connection getChallengeConnection(String applicationRoot) throws SQLException {
+    return Database.getChallengeConnection(applicationRoot, "BrokenAuthAndSessMangChalTwo");
   }
 }
