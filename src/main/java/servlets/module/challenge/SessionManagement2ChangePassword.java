@@ -49,8 +49,8 @@ public class SessionManagement2ChangePassword extends HttpServlet {
 
   /**
    * Changes a sub-application password for its authenticated owner. A Security Shepherd
-   * administrator can initialize only the sub-application account with the same username after
-   * reauthenticating with the current platform password.
+   * administrator can initialize a legacy account only while its unusable seed password remains,
+   * after reauthenticating with the current platform password.
    *
    * @param subEmail Sub schema user email address
    * @param newPassword New password chosen by the authenticated user
@@ -126,15 +126,13 @@ public class SessionManagement2ChangePassword extends HttpServlet {
           String selectSql =
               bootstrapAuthorized
                   ? "SELECT userId FROM users WHERE BINARY userAddress = BINARY ?"
-                      + " AND BINARY userName = BINARY ?"
                       + " AND userPassword = ?"
                   : "SELECT userId FROM users WHERE userAddress = ?";
           int targetUserId;
           try (PreparedStatement target = conn.prepareStatement(selectSql)) {
             target.setString(1, subEmail);
             if (bootstrapAuthorized) {
-              target.setString(2, (String) ses.getAttribute("userName"));
-              target.setString(3, UNINITIALIZED_PASSWORD);
+              target.setString(2, UNINITIALIZED_PASSWORD);
             }
             try (ResultSet users = target.executeQuery()) {
               if (!users.next()) {
@@ -153,15 +151,14 @@ public class SessionManagement2ChangePassword extends HttpServlet {
               bootstrapAuthorized
                   ? "UPDATE users SET userPassword = SHA(?) WHERE userId = ?"
                       + " AND BINARY userAddress = BINARY ?"
-                      + " AND BINARY userName = BINARY ? AND userPassword = ?"
+                      + " AND userPassword = ?"
                   : "UPDATE users SET userPassword = SHA(?) WHERE userId = ? AND userAddress = ?";
           try (PreparedStatement update = conn.prepareStatement(updateSql)) {
             update.setString(1, newPassword);
             update.setInt(2, targetUserId);
             update.setString(3, subEmail);
             if (bootstrapAuthorized) {
-              update.setString(4, (String) ses.getAttribute("userName"));
-              update.setString(5, UNINITIALIZED_PASSWORD);
+              update.setString(4, UNINITIALIZED_PASSWORD);
             }
             int updated = update.executeUpdate();
             if (bootstrapAuthorized && updated != 1) {

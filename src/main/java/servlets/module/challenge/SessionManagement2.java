@@ -7,6 +7,7 @@ import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import javax.servlet.ServletException;
@@ -86,7 +87,6 @@ public class SessionManagement2 extends HttpServlet {
         Object passObj = request.getParameter("subPassword");
         String subName = new String();
         String subPass = new String();
-        String userAddress = new String();
         if (nameObj != null) {
           subName = (String) nameObj;
         }
@@ -100,8 +100,7 @@ public class SessionManagement2 extends HttpServlet {
         String ApplicationRoot = getServletContext().getRealPath("");
         log.debug("Servlet root = " + ApplicationRoot);
 
-        Connection conn =
-            Database.getChallengeConnection(ApplicationRoot, "BrokenAuthAndSessMangChalTwo");
+        Connection conn = getChallengeConnection(ApplicationRoot);
         log.debug("Checking credentials");
         PreparedStatement callstmt;
 
@@ -141,8 +140,7 @@ public class SessionManagement2 extends HttpServlet {
                   + "</p>";
         } else {
           log.debug("Incorrect credentials");
-          userAddress = bundle.getString("response.badUser") + "<br/>";
-          htmlOutput = makeTable(userAddress, bundle);
+          htmlOutput = makeTable(bundle);
         }
         Database.closeConnection(conn);
         log.debug("Outputting HTML");
@@ -157,9 +155,14 @@ public class SessionManagement2 extends HttpServlet {
     }
   }
 
-  private static String makeTable(String userAddress, ResourceBundle bundle) {
+  protected Connection getChallengeConnection(String applicationRoot) throws SQLException {
+    return Database.getChallengeConnection(applicationRoot, "BrokenAuthAndSessMangChalTwo");
+  }
+
+  private static String makeTable(ResourceBundle bundle) {
     return "<table>"
-        + userAddress
+        + bundle.getString("response.badCredentials")
+        + "<br/>"
         + "<tr><td>"
         + bundle.getString("form.userName")
         + "</td><td><input type='text' id='subName'/></td></tr>"

@@ -50,7 +50,7 @@ class SessionChallengeSecurityTest {
   }
 
   @Test
-  void platformAdministratorCannotResetChallenge2AccountWithoutSubuserLogin() {
+  void platformAdministratorNeedsReauthenticationForChallenge2Initialization() {
     HttpSession session = TestSession.create();
     session.setAttribute("userRole", "admin");
     session.setAttribute("userName", "admin");
