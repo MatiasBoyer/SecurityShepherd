@@ -111,6 +111,15 @@ public final class SessionChallengeSecurity {
         && isSubUser(session, "challenge2", email);
   }
 
+  static boolean mayBootstrapChallenge2Password(
+      HttpSession session, String token, boolean adminReauthenticated) {
+    return adminReauthenticated
+        && isPlatformAdmin(session)
+        && session.getAttribute("userName") instanceof String
+        && !((String) session.getAttribute("userName")).isEmpty()
+        && hasActionToken(session, token);
+  }
+
   static String authenticatedSubUser(HttpSession session, String challenge) {
     if (session == null) {
       return null;

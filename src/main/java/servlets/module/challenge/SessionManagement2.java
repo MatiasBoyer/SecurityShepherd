@@ -153,6 +153,7 @@ public class SessionManagement2 extends HttpServlet {
       }
     } else {
       log.error(levelName + " servlet accessed with no session");
+      response.sendError(HttpServletResponse.SC_FORBIDDEN);
     }
   }
 

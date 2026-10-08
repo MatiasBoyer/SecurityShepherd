@@ -53,6 +53,7 @@ class SessionChallengeSecurityTest {
   void platformAdministratorCannotResetChallenge2AccountWithoutSubuserLogin() {
     HttpSession session = TestSession.create();
     session.setAttribute("userRole", "admin");
+    session.setAttribute("userName", "admin");
     String token = SessionChallengeSecurity.issueActionToken(session);
 
     assertFalse(
@@ -60,6 +61,11 @@ class SessionChallengeSecurityTest {
             session, "admin@example.test", "wrong"));
     assertFalse(
         SessionChallengeSecurity.mayChangeChallenge2Password(session, "admin@example.test", token));
+    assertFalse(SessionChallengeSecurity.mayBootstrapChallenge2Password(session, token, false));
+    assertFalse(SessionChallengeSecurity.mayBootstrapChallenge2Password(session, "wrong", true));
+    assertTrue(SessionChallengeSecurity.mayBootstrapChallenge2Password(session, token, true));
+    session.setAttribute("userRole", "player");
+    assertFalse(SessionChallengeSecurity.mayBootstrapChallenge2Password(session, token, true));
   }
 
   @Test

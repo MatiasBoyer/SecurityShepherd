@@ -111,6 +111,10 @@ if (request.getSession() != null)
 						<div id="resetSubmit">
 							<input id="resetEmail" type="text" autocomplete="off" />
 						<input id="resetNewPassword" type="password" autocomplete="new-password" minlength="8" placeholder="New password" />
+						<% if ("admin".equals(ses.getAttribute("userRole"))) { %>
+						<label for="resetAdminPassword"><%= bundle.getString("reset.adminPassword") %></label>
+						<input id="resetAdminPassword" type="password" autocomplete="current-password" />
+						<% } %>
 						<input type="submit" value="<%= bundle.getString("reset.header") %>" />
 						</div>
 						<p style="display: none;" id="resetLoadingSign"><%= bundle.getString("challenge.form.loading") %></p>
@@ -158,6 +162,7 @@ if (request.getSession() != null)
 			$("#leForm2").submit(function(){
 				var theResetEmail = $("#resetEmail").val();
 				var theNewPassword = $("#resetNewPassword").val();
+				var theAdminPassword = $("#resetAdminPassword").val() || "";
 				$("#resetSubmit").hide("fast");
 				$("#resetLoadingSign").show("slow");
 				$("#resultsDiv2").hide("slow", function(){
@@ -167,6 +172,7 @@ if (request.getSession() != null)
 						data: {
 							subEmail: theResetEmail,
 							newPassword: theNewPassword,
+							adminPassword: theAdminPassword,
 							csrfToken: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(sessionActionToken) %>"
 						},
 						async: false
