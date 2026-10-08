@@ -44,6 +44,7 @@ public class SqlInjectionStoredProcedure extends HttpServlet {
   private static final long serialVersionUID = 1L;
   private static final Logger log = LogManager.getLogger(SqlInjectionStoredProcedure.class);
   private static String levelName = "SQL Injection Stored Procedure Challenge";
+  private static final String RESULT_CUSTOMER_ID = "44e2bdc1059903f464e5ba9a34b927614d7fee55";
   public static String levelHash =
       "7edcbc1418f11347167dabb69fcb54137960405da2f7a90a0684f86c4d45a2e7";
 
@@ -80,39 +81,38 @@ public class SqlInjectionStoredProcedure extends HttpServlet {
         String ApplicationRoot = getServletContext().getRealPath("");
 
         log.debug("Getting Connection to Database");
-        Connection conn =
-            Database.getChallengeConnection(ApplicationRoot, "SqlChallengeStoredProc");
-        PreparedStatement stmt = InjectionChallengeQueries.findUser(conn, userIdentity);
-        ResultSet resultSet = stmt.executeQuery();
-
-        int i = 0;
-        htmlOutput = "<h2 class='title'>" + bundle.getString("response.searchResults") + "</h2>";
-        htmlOutput +=
-            "<table><tr><th>"
-                + bundle.getString("response.table.name")
-                + "</th><th>"
-                + bundle.getString("response.table.address")
-                + "</th><th>"
-                + bundle.getString("response.table.comment")
-                + "</th></tr>";
-
-        log.debug("Opening Result Set from query");
-        while (resultSet.next()) {
-          log.debug("Adding Customer " + resultSet.getString(2));
+        try (Connection conn =
+                Database.getChallengeConnection(ApplicationRoot, "SqlChallengeStoredProc");
+            PreparedStatement stmt = InjectionChallengeQueries.findUser(conn, userIdentity);
+            ResultSet resultSet = stmt.executeQuery()) {
+          int i = 0;
+          htmlOutput = "<h2 class='title'>" + bundle.getString("response.searchResults") + "</h2>";
           htmlOutput +=
-              "<tr><td>"
-                  + Encode.forHtml(resultSet.getString(2))
-                  + "</td><td>"
-                  + Encode.forHtml(resultSet.getString(3))
-                  + "</td><td>"
-                  + Encode.forHtml(resultSet.getString(4))
-                  + "</td></tr>";
-          i++;
-        }
-        conn.close();
-        htmlOutput += "</table>";
-        if (i == 0) {
-          htmlOutput = "<p>" + bundle.getString("response.noResults") + "</p>";
+              "<table><tr><th>"
+                  + bundle.getString("response.table.name")
+                  + "</th><th>"
+                  + bundle.getString("response.table.address")
+                  + "</th><th>"
+                  + bundle.getString("response.table.comment")
+                  + "</th></tr>";
+
+          log.debug("Opening Result Set from query");
+          while (resultSet.next()) {
+            log.debug("Adding Customer " + resultSet.getString(2));
+            htmlOutput +=
+                "<tr><td>"
+                    + Encode.forHtml(resultSet.getString(2))
+                    + "</td><td>"
+                    + Encode.forHtml(resultSet.getString(3))
+                    + "</td><td>"
+                    + displayComment(resultSet.getString(1), resultSet.getString(4))
+                    + "</td></tr>";
+            i++;
+          }
+          htmlOutput += "</table>";
+          if (i == 0) {
+            htmlOutput = "<p>" + bundle.getString("response.noResults") + "</p>";
+          }
         }
       } catch (SQLException e) {
         log.debug("SQL Error caught - " + e.toString());
@@ -126,5 +126,13 @@ public class SqlInjectionStoredProcedure extends HttpServlet {
     } else {
       log.error(levelName + " servlet accessed with no session");
     }
+  }
+
+  static String displayComment(String customerId, String comment) {
+    // The seeded result key is challenge data, not a public customer comment.
+    if (RESULT_CUSTOMER_ID.equals(customerId)) {
+      return "";
+    }
+    return comment == null ? "" : Encode.forHtml(comment);
   }
 }
