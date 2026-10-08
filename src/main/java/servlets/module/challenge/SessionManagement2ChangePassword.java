@@ -73,7 +73,6 @@ public class SessionManagement2ChangePassword extends HttpServlet {
       PrintWriter out = response.getWriter();
       out.print(getServletInfo());
 
-      String htmlOutput = new String();
       log.debug(levelName + " Servlet accessed");
       try {
         log.debug("Getting Challenge Parameter");
@@ -85,53 +84,49 @@ public class SessionManagement2ChangePassword extends HttpServlet {
           response.sendError(HttpServletResponse.SC_FORBIDDEN);
           return;
         }
-        if (!SessionChallengeSecurity.mayChangeChallenge2Password(ses, subEmail, csrfToken)) {
-          response.sendError(HttpServletResponse.SC_FORBIDDEN);
-          return;
-        }
         if (!Validate.isValidPassword(newPassword)) {
           response.sendError(HttpServletResponse.SC_BAD_REQUEST);
           return;
         }
 
-        String applicationRoot = getServletContext().getRealPath("");
-        try (Connection conn = getChallengeConnection(applicationRoot)) {
-          int targetUserId;
-          try (PreparedStatement target =
-              conn.prepareStatement("SELECT userId FROM users WHERE userAddress = ?")) {
-            target.setString(1, subEmail);
-            try (ResultSet users = target.executeQuery()) {
-              if (!users.next()) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return;
-              }
-              targetUserId = users.getInt(1);
-              if (users.next()) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return;
+        if (SessionChallengeSecurity.mayChangeChallenge2Password(ses, subEmail, csrfToken)) {
+          String applicationRoot = getServletContext().getRealPath("");
+          try (Connection conn = getChallengeConnection(applicationRoot)) {
+            int targetUserId = -1;
+            try (PreparedStatement target =
+                conn.prepareStatement("SELECT userId FROM users WHERE userAddress = ?")) {
+              target.setString(1, subEmail);
+              try (ResultSet users = target.executeQuery()) {
+                if (users.next()) {
+                  targetUserId = users.getInt(1);
+                  if (users.next()) {
+                    targetUserId = -1;
+                  }
+                }
               }
             }
-          }
 
-          try (PreparedStatement update =
-              conn.prepareStatement(
-                  "UPDATE users SET userPassword = SHA(?) WHERE userId = ? AND userAddress = ?")) {
-            update.setString(1, newPassword);
-            update.setInt(2, targetUserId);
-            update.setString(3, subEmail);
-            update.executeUpdate();
+            if (targetUserId != -1) {
+              try (PreparedStatement update =
+                  conn.prepareStatement(
+                      "UPDATE users SET userPassword = SHA(?) WHERE userId = ? AND userAddress = ?")) {
+                update.setString(1, newPassword);
+                update.setInt(2, targetUserId);
+                update.setString(3, subEmail);
+                update.executeUpdate();
+              }
+              try (PreparedStatement commit = conn.prepareStatement("COMMIT")) {
+                commit.execute();
+              }
+            }
+          } catch (SQLException e) {
+            log.error(levelName + " SQL Error: " + e.toString());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return;
           }
-          try (PreparedStatement commit = conn.prepareStatement("COMMIT")) {
-            commit.execute();
-          }
-          htmlOutput = bundle.getString("response.changed");
-        } catch (SQLException e) {
-          log.error(levelName + " SQL Error: " + e.toString());
-          response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-          return;
         }
         log.debug("Outputting HTML");
-        out.write(htmlOutput);
+        out.write(bundle.getString("response.requestReceived"));
       } catch (Exception e) {
         out.write(errors.getString("error.funky"));
         log.fatal(levelName + " - " + e.toString());

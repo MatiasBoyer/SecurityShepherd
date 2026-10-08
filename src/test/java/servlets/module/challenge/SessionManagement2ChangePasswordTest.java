@@ -1,9 +1,13 @@
 package servlets.module.challenge;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,12 +54,32 @@ class SessionManagement2ChangePasswordTest {
   }
 
   @Test
-  void platformAdministratorCannotChangeAnotherSubuserPassword() throws Exception {
+  void platformAdministratorGetsGenericAcknowledgementWithoutSubuserAccess() throws Exception {
     HttpSession session = TestSession.create();
     session.setAttribute("userName", "admin");
     session.setAttribute("userRole", "admin");
     String token = SessionChallengeSecurity.issueActionToken(session);
     HttpServletRequest request = resetRequest(session, "owner@example.test", token);
+    HttpServletResponse response = mock(HttpServletResponse.class);
+    StringWriter output = new StringWriter();
+    PrintWriter writer = new PrintWriter(output);
+    when(response.getWriter()).thenReturn(writer);
+
+    new SessionManagement2ChangePassword().doPost(request, response);
+    writer.flush();
+
+    verify(response, never()).sendError(anyInt());
+    assertTrue(output.toString().contains("Password change request received."));
+  }
+
+  @Test
+  void resetWithInvalidActionTokenIsForbidden() throws Exception {
+    HttpSession session = TestSession.create();
+    session.setAttribute("userName", "player");
+    session.setAttribute("userRole", "player");
+    SessionChallengeSecurity.recordSubUser(session, "challenge2", "owner@example.test");
+    SessionChallengeSecurity.issueActionToken(session);
+    HttpServletRequest request = resetRequest(session, "owner@example.test", "invalid-token");
     HttpServletResponse response = mock(HttpServletResponse.class);
     when(response.getWriter()).thenReturn(new PrintWriter(new StringWriter()));
 
@@ -65,7 +89,7 @@ class SessionManagement2ChangePasswordTest {
   }
 
   @Test
-  void signedInSubuserCanChangeOwnPasswordWithoutDisclosingIt() throws Exception {
+  void ownerAndOtherEmailsGetSameResponseButOnlyOwnerPasswordChanges() throws Exception {
     HttpSession session = TestSession.create();
     session.setAttribute("userName", "player");
     session.setAttribute("userRole", "player");
@@ -105,12 +129,26 @@ class SessionManagement2ChangePasswordTest {
 
     servlet.doPost(request, response);
     writer.flush();
+    String ownerOutput = output.toString();
+
+    for (String otherEmail : new String[] {"other@example.test", "missing@example.test"}) {
+      HttpServletResponse otherResponse = mock(HttpServletResponse.class);
+      StringWriter otherOutput = new StringWriter();
+      PrintWriter otherWriter = new PrintWriter(otherOutput);
+      when(otherResponse.getWriter()).thenReturn(otherWriter);
+      servlet.doPost(resetRequest(session, otherEmail, token), otherResponse);
+      otherWriter.flush();
+      verify(otherResponse, never()).sendError(anyInt());
+      assertEquals(ownerOutput, otherOutput.toString());
+    }
 
     verify(update).setString(1, "new-private-password");
     verify(update).setString(3, email);
-    verify(update).executeUpdate();
-    assertTrue(output.toString().contains("Password changed."));
-    assertFalse(output.toString().contains("new-private-password"));
+    verify(update, times(1)).executeUpdate();
+    verify(connection, times(1)).prepareStatement(startsWith("SELECT userId"));
+    verify(response, never()).sendError(anyInt());
+    assertTrue(ownerOutput.contains("Password change request received."));
+    assertFalse(ownerOutput.contains("new-private-password"));
   }
 
   private static HttpServletRequest resetRequest(HttpSession session, String email, String token) {
