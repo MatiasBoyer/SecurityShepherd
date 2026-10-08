@@ -1,7 +1,6 @@
 package servlets.module.challenge;
 
 import dbProcs.Database;
-import dbProcs.Getter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Connection;
@@ -46,8 +45,7 @@ public class SessionManagement2ChangePassword extends HttpServlet {
       "f5ddc0ed2d30e597ebacf5fdd117083674b19bb92ffc3499121b9e6a12c92959";
 
   /**
-   * Changes a sub-application password for its authenticated owner. A platform administrator can
-   * recover an account after reauthenticating with their Security Shepherd password.
+   * Changes a sub-application password only for its authenticated owner.
    *
    * @param subEmail Sub schema user email address
    * @param newPassword New password chosen by the authenticated user
@@ -86,23 +84,7 @@ public class SessionManagement2ChangePassword extends HttpServlet {
           response.sendError(HttpServletResponse.SC_FORBIDDEN);
           return;
         }
-        String ApplicationRoot = getServletContext().getRealPath("");
-        String adminPassword = request.getParameter("adminPassword");
-        boolean adminReauthenticated = false;
-        if (SessionChallengeSecurity.isPlatformAdmin(ses)
-            && adminPassword != null
-            && !adminPassword.isEmpty()) {
-          String[] admin =
-              Getter.authUser(
-                  ApplicationRoot, (String) ses.getAttribute("userName"), adminPassword);
-          adminReauthenticated =
-              admin != null
-                  && admin.length > 2
-                  && "admin".equals(admin[2])
-                  && admin[0].equals(ses.getAttribute("userStamp"));
-        }
-        if (!SessionChallengeSecurity.mayChangeChallenge2Password(
-            ses, subEmail, csrfToken, adminReauthenticated)) {
+        if (!SessionChallengeSecurity.mayChangeChallenge2Password(ses, subEmail, csrfToken)) {
           response.sendError(HttpServletResponse.SC_FORBIDDEN);
           return;
         }
@@ -111,6 +93,7 @@ public class SessionManagement2ChangePassword extends HttpServlet {
           return;
         }
 
+        String ApplicationRoot = getServletContext().getRealPath("");
         try {
           Connection conn =
               Database.getChallengeConnection(ApplicationRoot, "BrokenAuthAndSessMangChalTwo");

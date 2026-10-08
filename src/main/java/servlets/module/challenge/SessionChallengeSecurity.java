@@ -104,13 +104,11 @@ public final class SessionChallengeSecurity {
         && userName.equals(session.getAttribute(SUBUSER_PREFIX + challenge));
   }
 
-  static boolean mayChangeChallenge2Password(
-      HttpSession session, String email, String token, boolean adminReauthenticated) {
+  static boolean mayChangeChallenge2Password(HttpSession session, String email, String token) {
     return email != null
         && !email.isEmpty()
         && hasActionToken(session, token)
-        && (isSubUser(session, "challenge2", email)
-            || (isPlatformAdmin(session) && adminReauthenticated));
+        && isSubUser(session, "challenge2", email);
   }
 
   static String authenticatedSubUser(HttpSession session, String challenge) {
